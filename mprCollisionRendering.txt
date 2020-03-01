@@ -1,0 +1,338 @@
+
+
+void Renderer::renderCollision(const vector<Vec3>& minkowskiDiff, const vector<Vec3>& mprVerts){
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	shaderWireframe_.use();
+	//glEnable(GL_DEPTH_TEST);
+	// View and projection matrix
+	Matrix viewProj;
+
+	// View location
+	// Remember to swap y and z axes and invert y!
+	viewProj.translate(0, -2, 0);
+	viewProj.transpose();
+	viewProj.rotate(-90, 0, 0);
+
+	// Apply projection matrix
+	viewProj *= Matrix(60, 4.0f / 3.0f, 0.01f, 1000);
+	glUniformMatrix4fv(glGetUniformLocation(shaderWireframe_.getProgram(), "viewProj"), 1, GL_FALSE, viewProjTemp_.getValuesPtr());
+
+	vector<float> vertices;
+
+	// Origin
+	vertices.push_back(0);
+	vertices.push_back(0);
+	vertices.push_back(0);
+
+	// Minkowski difference (as points)
+	for(auto i = minkowskiDiff.begin(); i != minkowskiDiff.end(); i++){
+		vertices.push_back((*i)[0]);
+		vertices.push_back((*i)[1]);
+		vertices.push_back((*i)[2]);
+	}
+
+	// MPR points (as triangles)
+	int mprVertsCount = 0;
+	for(auto i = mprVerts.begin(); i != mprVerts.end() - 2; i++){
+		for(auto j = i + 1; j != mprVerts.end() - 1; j++){
+			for(auto k = j + 1; k != mprVerts.end(); k++){
+				vertices.push_back((*i)[0]);
+				vertices.push_back((*i)[1]);
+				vertices.push_back((*i)[2]);
+
+				vertices.push_back((*j)[0]);
+				vertices.push_back((*j)[1]);
+				vertices.push_back((*j)[2]);
+
+				vertices.push_back((*k)[0]);
+				vertices.push_back((*k)[1]);
+				vertices.push_back((*k)[2]);
+				mprVertsCount += 3;
+			}
+		}
+	}
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	// Create vertex buffer
+	GLuint vBuffer;
+	glGenBuffers(1, &vBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
+
+	// Write data
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Enable buffers
+	glEnableVertexAttribArray(0);
+
+
+	// Render origin
+	glLineWidth(5);
+	glPointSize(7);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 0);
+	glDrawArrays(GL_POINTS, 0, 1);
+
+	// Render Minkowski difference
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0, 1);
+	glDrawArrays(GL_POINTS, 1, minkowskiDiff.size());
+
+	// Render MPR vertices
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 1, 0);
+	glDrawArrays(GL_TRIANGLES, 1 + minkowskiDiff.size(), mprVertsCount);
+
+
+	// Disable buffers
+	glDisableVertexAttribArray(0);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	glBindVertexArray(0);
+	//glDisable(GL_DEPTH_TEST);
+
+	// Delete VAO and buffer
+	glDeleteBuffers(1, &vBuffer);
+	glDeleteVertexArrays(1, &vao);
+
+	glfwSwapBuffers(winPtr__);
+}
+
+
+
+
+
+
+
+
+
+
+void Renderer::renderCollision(const vector<CVertex>& minkowskiDiff, const vector<EPAFace>& faces, const Vec3& support){
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	shaderWireframe_.use();
+	//glEnable(GL_DEPTH_TEST);
+	// View and projection matrix
+	Matrix viewProj;
+
+	// View location
+	// Remember to swap y and z axes and invert y!
+	viewProj.translate(0, -2, 0);
+	viewProj.transpose();
+	viewProj.rotate(-90, 0, 0);
+
+	// Apply projection matrix
+	viewProj *= Matrix(60, 4.0f / 3.0f, 0.01f, 1000);
+	glUniformMatrix4fv(glGetUniformLocation(shaderWireframe_.getProgram(), "viewProj"), 1, GL_FALSE, viewProjTemp_.getValuesPtr());
+
+	vector<float> vertices;
+
+	// Origin
+	vertices.push_back(0);
+	vertices.push_back(0);
+	vertices.push_back(0);
+
+	// Minkowski difference (as points)
+	for(auto i = minkowskiDiff.begin(); i != minkowskiDiff.end(); i++){
+		vertices.push_back((*i).v[0]);
+		vertices.push_back((*i).v[1]);
+		vertices.push_back((*i).v[2]);
+	}
+	for(auto i = minkowskiDiff.begin(); i != minkowskiDiff.end(); i++){
+		vertices.push_back((*i).vObj1[0]);
+		vertices.push_back((*i).vObj1[1]);
+		vertices.push_back((*i).vObj1[2]);
+	}
+	for(auto i = minkowskiDiff.begin(); i != minkowskiDiff.end(); i++){
+		vertices.push_back((*i).vObj2[0]);
+		vertices.push_back((*i).vObj2[1]);
+		vertices.push_back((*i).vObj2[2]);
+	}
+
+	// MPR points (as triangles)
+	auto closest = faces.begin();
+	for(auto i = faces.begin(); i != faces.end(); i++)
+		if((*i).distance < (*closest).distance)
+			closest = i;
+
+	vertices.push_back((*closest).v1.v[0]);
+	vertices.push_back((*closest).v1.v[1]);
+	vertices.push_back((*closest).v1.v[2]);
+
+	vertices.push_back((*closest).v2.v[0]);
+	vertices.push_back((*closest).v2.v[1]);
+	vertices.push_back((*closest).v2.v[2]);
+
+	vertices.push_back((*closest).v3.v[0]);
+	vertices.push_back((*closest).v3.v[1]);
+	vertices.push_back((*closest).v3.v[2]);
+
+	vertices.push_back((*closest).v1.vObj1[0]);
+	vertices.push_back((*closest).v1.vObj1[1]);
+	vertices.push_back((*closest).v1.vObj1[2]);
+
+	vertices.push_back((*closest).v2.vObj1[0]);
+	vertices.push_back((*closest).v2.vObj1[1]);
+	vertices.push_back((*closest).v2.vObj1[2]);
+
+	vertices.push_back((*closest).v3.vObj1[0]);
+	vertices.push_back((*closest).v3.vObj1[1]);
+	vertices.push_back((*closest).v3.vObj1[2]);
+
+	vertices.push_back((*closest).v1.vObj2[0]);
+	vertices.push_back((*closest).v1.vObj2[1]);
+	vertices.push_back((*closest).v1.vObj2[2]);
+
+	vertices.push_back((*closest).v2.vObj2[0]);
+	vertices.push_back((*closest).v2.vObj2[1]);
+	vertices.push_back((*closest).v2.vObj2[2]);
+
+	vertices.push_back((*closest).v3.vObj2[0]);
+	vertices.push_back((*closest).v3.vObj2[1]);
+	vertices.push_back((*closest).v3.vObj2[2]);
+
+	for(auto i = faces.begin(); i != faces.end(); i++){
+
+		if(i == closest)
+			continue;
+
+		vertices.push_back((*i).v1.v[0]);
+		vertices.push_back((*i).v1.v[1]);
+		vertices.push_back((*i).v1.v[2]);
+
+		vertices.push_back((*i).v2.v[0]);
+		vertices.push_back((*i).v2.v[1]);
+		vertices.push_back((*i).v2.v[2]);
+
+		vertices.push_back((*i).v3.v[0]);
+		vertices.push_back((*i).v3.v[1]);
+		vertices.push_back((*i).v3.v[2]);
+	}
+
+	// Face normals
+	for(auto i = faces.begin(); i != faces.end(); i++){
+		Vec3 v1 = ((*i).v1.v + (*i).v2.v + (*i).v3.v) / 3;
+		Vec3 v2 = v1 + (*i).normal.unitVector() * 0.1f;
+
+		vertices.push_back(v1[0]);
+		vertices.push_back(v1[1]);
+		vertices.push_back(v1[2]);
+
+		vertices.push_back(v2[0]);
+		vertices.push_back(v2[1]);
+		vertices.push_back(v2[2]);
+	}
+
+	// Support
+	vertices.push_back(support[0]);
+	vertices.push_back(support[1]);
+	vertices.push_back(support[2]);
+
+
+	Vec3 penetration = (*closest).normal * (*closest).distance;
+
+	// Get barycentric coordinates of origin on closest triangle
+	Vec3 v0 = (*closest).v2.v - (*closest).v1.v;
+	Vec3 v1 = (*closest).v3.v - (*closest).v1.v;
+	Vec3 v2 = penetration - (*closest).v1.v;
+
+	float d00 = v0.magnitude2();
+	float d01 = v0 * v1;
+	float d11 = v1.magnitude2();
+	float d20 = v2 * v0;
+	float d21 = v2 * v1;
+	float denom = d00 * d11 - d01 * d01;
+
+	float v = (d11 * d20 - d01 * d21) / denom;
+	float w = (d00 * d21 - d01 * d20) / denom;
+	float u = 1 - v - w;
+
+	Vec3 proj = ((*closest).v1.v * u) + ((*closest).v2.v * v) + ((*closest).v3.v * w);
+	Vec3 projO1 = ((*closest).v1.vObj1 * u) + ((*closest).v2.vObj1 * v) + ((*closest).v3.vObj1 * w);
+	Vec3 projO2 = ((*closest).v1.vObj2 * u) + ((*closest).v2.vObj2 * v) + ((*closest).v3.vObj2 * w);
+	vertices.push_back(proj[0]);
+	vertices.push_back(proj[1]);
+	vertices.push_back(proj[2]);
+
+	vertices.push_back(projO1[0]);
+	vertices.push_back(projO1[1]);
+	vertices.push_back(projO1[2]);
+
+	vertices.push_back(projO2[0]);
+	vertices.push_back(projO2[1]);
+	vertices.push_back(projO2[2]);
+
+
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	// Create vertex buffer
+	GLuint vBuffer;
+	glGenBuffers(1, &vBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
+
+	// Write data
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Enable buffers
+	glEnableVertexAttribArray(0);
+
+
+	// Render origin
+	glLineWidth(5);
+	glPointSize(7);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 0);
+	glDrawArrays(GL_POINTS, 0, 1);
+
+	// Render Minkowski difference
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0, 1);
+	glDrawArrays(GL_POINTS, 1, minkowskiDiff.size());
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0.5, 0, 1);
+	glDrawArrays(GL_POINTS, 1 + minkowskiDiff.size(), minkowskiDiff.size());
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0.5, 1);
+	glDrawArrays(GL_POINTS, 1 + minkowskiDiff.size() * 2, minkowskiDiff.size());
+
+	// Render MPR vertices
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 1, 0);
+	glDrawArrays(GL_TRIANGLES, 10 + (minkowskiDiff.size() * 3), (faces.size() - 1) * 3);
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 1, 1);
+	glDrawArrays(GL_TRIANGLES, 1 + (minkowskiDiff.size() * 3), 9);
+
+	// Render MPR normals
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0.5f, 0);
+	glDrawArrays(GL_LINES, 7 + (minkowskiDiff.size() * 3) + faces.size() * 3, faces.size() * 2);
+
+	// Render support point
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 1);
+	glDrawArrays(GL_POINTS, 7 + (minkowskiDiff.size() * 3) + faces.size() * 5, 1);
+
+	// Render projected origin
+	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 1, 0);
+	glDrawArrays(GL_POINTS, 9 + (minkowskiDiff.size() * 3) + faces.size() * 5, 3);
+
+
+	// Disable buffers
+	glDisableVertexAttribArray(0);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	glBindVertexArray(0);
+	//glDisable(GL_DEPTH_TEST);
+
+	// Delete VAO and buffer
+	glDeleteBuffers(1, &vBuffer);
+	glDeleteVertexArrays(1, &vao);
+
+	glfwSwapBuffers(window__->getWinPtr());
+}
