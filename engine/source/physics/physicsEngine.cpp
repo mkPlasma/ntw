@@ -31,9 +31,9 @@ void PhysicsEngine::init(){
 	semiDynamicObjects_.clear();
 
 	for(auto i = objects_.begin(); i != objects_.end(); i++){
-		if((*i)->getPhysicsType() == PHYS_STATIC)
+		if((*i)->getPhysicsType() == PhysicsType::STATIC)
 			staticObjects_.push_back(*i);
-		else if((*i)->getPhysicsType() == PHYS_SEMI_DYNAMIC)
+		else if((*i)->getPhysicsType() == PhysicsType::SEMI_DYNAMIC)
 			semiDynamicObjects_.push_back(*i);
 	}
 
@@ -48,52 +48,45 @@ void PhysicsEngine::update(){
 		PhysicsObject* obj = *i;
 
 		// Gravity
-		obj->addVelocity(Vec3(0, 0, -0.3f));
+		if(obj->useGravity())
+			obj->addVelocity(Vec3(0, 0, -0.3f));
 
-		obj->tUpdate();
+		obj->tUpdatePhysics();
 	}
 
 	// Collision detection (in physicsEngineCollisions.cpp)
 	checkCollisions();
 
 	// Solve constraints, repeating until all constraints are satisfied
-	bool solved;
 	int iter = 0;
 
 	do{
+		bool solved = true;
+
 		// Solve and apply constraints
 		for(auto i = contactConstraints_.begin(); i != contactConstraints_.end(); i++)
-			(*i).solve();
+			solved &= (*i).solve();
 
 		for(auto i = constraints_.begin(); i != constraints_.end(); i++)
-			(*i).solve();
-
-		// Check that constraints have been solved
-		solved = true;
-		for(auto i = contactConstraints_.begin(); i != contactConstraints_.end(); i++){
-
-			// This constraint not solved, so solve all constraints again
-			if(!(*i).calcConstraint()){
-				solved = false;
-				break;
-			}
-		}
-		for(auto i = constraints_.begin(); i != constraints_.end(); i++){
-			if(!(*i).calcConstraint()){
-				solved = false;
-				break;
-			}
-		}
+			solved &= (*i).solve();
 
 		iter++;
 
-	} while(!solved && iter < PHYS_MAX_CONSTRAINT_ITER);
+		if(solved)
+			break;
+
+		// Temp update all dynamic objects again
+		//for(auto i = dynamicObjects_.begin(); i != dynamicObjects_.end(); i++)
+		//	((PhysicsObject*)*i)->tUpdatePhysics();
+
+	} while(iter < PHYS_MAX_CONSTRAINT_ITER);
+
 
 	// Update all objects
 	for(auto i = dynamicObjects_.begin(); i != dynamicObjects_.end(); i++)
-		(*i)->update();
+		(*i)->updatePhysics();
 }
 
-vector<ContactManifold>& PhysicsEngine::getCollisions(){
+vector<ContactManifold>& PhysicsEngine::getContactManifolds(){
 	return contactManifolds_;
 }

@@ -34,7 +34,7 @@ Model ntw::getPlane(){
 	return m;
 }
 
-Model ntw::getCube(const bool& smoothNormals){
+Model ntw::getCube(bool smoothNormals){
 
 	const vector<float> vertices = {
 		-1,	-1,	1,		-1,	-1,	-1,		1,	-1,	1,
@@ -85,7 +85,7 @@ Model ntw::getCube(const bool& smoothNormals){
 	return m;
 }
 
-Model ntw::getSphere(const int& segmentsU, const int& segmentsV, const bool& smoothNormals){
+Model ntw::getSphere(int segmentsU, int segmentsV, bool smoothNormals){
 
 	vector<float> vertices;
 	vector<float> texCoords;
@@ -196,12 +196,11 @@ Model ntw::getTransformedObjectModel(const Object& obj){
 	newModel.normals = newNormals;
 	newModel.texCoords = m->texCoords;
 	newModel.numVertices = m->numVertices;
-	newModel.texture = m->texture;
 
 	return newModel;
 }
 
-vector<float> ntw::createNormals(const vector<float>& vertices, const bool& smooth){
+vector<float> ntw::createNormals(const vector<float>& vertices, bool smooth){
 	
 	vector<float> normals;
 

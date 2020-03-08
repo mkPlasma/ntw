@@ -5,7 +5,8 @@
 
 
 CoreGame::CoreGame(Options& options, Window& window) :
-	options_(options), window_(window), renderer_(options.graphics), world_(options, texCache_, window) {
+	options_(options), window_(window), renderer_(options.graphics), soundEngine_(options.sound),
+	world_(options, resCache_, soundEngine_, window) {
 
 	mouseLocked_ = false;
 
@@ -18,12 +19,14 @@ CoreGame::CoreGame(Options& options, Window& window) :
 void CoreGame::init(){
 
 	renderer_.init();
+	soundEngine_.init();
 	world_.test();
 
 	renderer_.initWorldRendering(&world_);
+	soundEngine_.initWorldSound(&world_);
 }
 
-void CoreGame::update(const int& time, const bool& updatePhysics){
+void CoreGame::update(int time, bool updatePhysics){
 
 	// Lock mouse when window is clicked in
 	if(window_.isMouseInWindow() && window_.isMouseButtonDown(GLFW_MOUSE_BUTTON_1)){
@@ -51,7 +54,7 @@ void CoreGame::update(const int& time, const bool& updatePhysics){
 	world_.update(updatePhysics);
 }
 
-void CoreGame::render(const int& time, const float& delta){
+void CoreGame::render(int time, float delta){
 	renderer_.renderWorld(time, delta);
 }
 
@@ -59,4 +62,5 @@ void CoreGame::finish(){
 	world_.unload();
 	renderer_.cleanupWorldRendering();
 	renderer_.destroy();
+	soundEngine_.close();
 }

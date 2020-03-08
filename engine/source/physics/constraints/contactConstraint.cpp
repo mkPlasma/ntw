@@ -10,42 +10,45 @@ using std::max;
 
 
 ContactConstraint::ContactConstraint(Contact& contact, ObjectPair& objects) :
-	Constraint(objects.object1, objects.object2, true), contact_(contact), firstSolve_(true) {
+	Constraint(objects.object1, objects.object2, true), contact_(contact) {
 
-	init();
+}
 
-	// Initialize jacobians
-	jacNormal_ = jacTangent1_ = jacTangent2_ = jac_;
+void ContactConstraint::init(){
 
-	// Normal constraint
-	Vec3 penetrationNormal = -contact.penetration.unitVector();
+	Constraint::init();
 
-	Vec3 vel1		= object1_->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)object1_)->getVelocity()		: Vec3();
-	Vec3 angVel1	= object1_->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)object1_)->getAngularVelocity()	: Vec3();
-	Vec3 vel2		= object2_->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)object2_)->getVelocity()		: Vec3();
-	Vec3 angVel2	= object2_->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)object2_)->getAngularVelocity()	: Vec3();
+	if(firstSolve_){
+		// Initialize jacobians
+		jacNormal_ = jacTangent1_ = jacTangent2_ = jac_;
 
-	// Baumgarte stabilization
-	float penetrationDepth = (contact.obj2ContactGlobal - contact.obj1ContactGlobal) * -penetrationNormal;
-	biasNormal_ = -(PHYS_BAUMGARTE_FAC / PHYS_TIMESTEP) * max(penetrationDepth - PHYS_PENETRATION_SLOP, 0.0f);
+		// Normal constraint
+		Vec3 vel1		= object1_->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)object1_)->getVelocity()		: Vec3();
+		Vec3 angVel1	= object1_->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)object1_)->getAngularVelocity()	: Vec3();
+		Vec3 vel2		= object2_->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)object2_)->getVelocity()		: Vec3();
+		Vec3 angVel2	= object2_->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)object2_)->getAngularVelocity()	: Vec3();
 
-	// Restitution
-	// TODO: change multiplier to factor determined by material elasticity
-	contact.closingSpeed = ((-vel1 - crossProduct(angVel1, contact.obj1ContactVector)
-		+ (vel2 + crossProduct(angVel2, contact.obj2ContactVector))) * penetrationNormal);
-	biasNormal_ += 0.5f * max(contact.closingSpeed - PHYS_RESTITUTION_SLOP, 0.0f);
+		// Baumgarte stabilization
+		biasNormal_ = -(PHYS_BAUMGARTE_FAC / PHYS_TIMESTEP) * max(contact_.penetrationDepth - PHYS_PENETRATION_SLOP, 0.0f);
+
+		// Restitution
+		// TODO: change multiplier to factor determined by material elasticity
+		contact_.closingSpeed = ((-vel1 - crossProduct(angVel1, contact_.obj1ContactVector)
+			+ (vel2 + crossProduct(angVel2, contact_.obj2ContactVector))) * -contact_.normal);
+		biasNormal_ += 0.5f * max(contact_.closingSpeed - PHYS_RESTITUTION_SLOP, 0.0f);
+	}
 
 	// Set jacobians
 	auto l_setJacobian = [](Matrix& jac, const Contact& contact, const Vec3& direction) -> void {
 		jac.place(0, 0, -direction, true);
-		jac.place(0, 3, crossProduct(-contact.obj1ContactVector, direction), true);
+		jac.place(0, 3, -crossProduct(contact.obj1ContactVector, direction), true);
 		jac.place(0, 6, direction, true);
 		jac.place(0, 9, crossProduct(contact.obj2ContactVector, direction), true);
 	};
 
-	l_setJacobian(jacNormal_,	contact, penetrationNormal);
-	l_setJacobian(jacTangent1_,	contact, contact.tangent1);
-	l_setJacobian(jacTangent2_,	contact, contact.tangent2);
+	l_setJacobian(jacNormal_, contact_, -contact_.normal);
+	l_setJacobian(jacTangent1_, contact_, contact_.tangent1);
+	l_setJacobian(jacTangent2_, contact_, contact_.tangent2);
 }
 
 // Set constraint properties for each constraint direction
@@ -55,7 +58,7 @@ void ContactConstraint::setProperties(int type){
 	if(type == 0){
 		jac_ = jacNormal_;
 		bias_ = biasNormal_;
-		constrainGreaterThanZero_ = firstSolve_;
+		constrainGreaterThanZero_ = true;
 		return;
 	}
 
@@ -68,36 +71,28 @@ void ContactConstraint::setProperties(int type){
 	}
 }
 
-// Check all 3 constraint directions
-inline bool ContactConstraint::calcConstraint(){
-	for(int i = 0; i < 3; i++){
+bool ContactConstraint::solve(){
 
-		setProperties(i);
+	init();
 
-		if(!Constraint::calcConstraint())
-			return false;
-	}
-
-	return true;
-}
-
-void ContactConstraint::solve(){
+	// Check that all 3 constraints are solved
+	bool solved = true;
 
 	// For each constraint direction
-	for(int i = 0; i < 1; i++){
+	for(int i = 0; i < 3; i++){
 
 		// Set constraint properties
 		setProperties(i);
 
 		// Calculate individual constraint value and check if it should be enforced
-		if(Constraint::calcConstraint())
-			return;
+		if(calcConstraint())
+			continue;
+
 
 		calcInvMassJt();
 
-		// If this is the first solve and the contact is persistent,
-		// use its lambda sum as the current lambda
-		if(firstSolve_ && contact_.persistent){
+		// If this is the first solve and the contact is persistent, use previous lambda sum as current lambda
+		if(firstSolve_ && !contact_.isNew){
 			switch(i){
 			case 0:	lambda_ = contact_.lambdaSum		* PHYS_WARM_START_LAMBDA_MULTIPLIER;	break;
 			case 1:	lambda_ = contact_.lambdaSumTan1	* PHYS_WARM_START_LAMBDA_MULTIPLIER;	break;
@@ -106,7 +101,7 @@ void ContactConstraint::solve(){
 		}
 
 		// Calculate current lambda
-		//else
+		else
 			calcLambda();
 
 		// Get lambda sum according to constraint type
@@ -125,23 +120,42 @@ void ContactConstraint::solve(){
 			*lambdaSum = max(*lambdaSum, 0.0f);
 		else{
 			// TODO: change multiplier to coefficient of friction
-			float val = 0.5f * contact_.lambdaSum;
-
-			if(*lambdaSum > val)
-				*lambdaSum = val;
-			else if(*lambdaSum < -val)
-				*lambdaSum = -val;
+			float clamp = 0.5f * contact_.lambdaSum;
+			*lambdaSum = max(*lambdaSum, -clamp);
+			*lambdaSum = min(*lambdaSum, clamp);
 		}
 
 		// Compute actual lambda
 		lambda_ = *lambdaSum - lambdaSumCopy;
 
+		// If lambda is small enough, it will not have much effect so consider the constraint solved
+		if(abs(lambda_) < PHYS_CONSTRAINT_THRESHOLD)
+			continue;
+
+
+		// Add lambda to average
+		auto l_addToAvg = [](float& avg, float val, int times) -> void {
+			avg = ((avg * times) + val) / (times + 1);
+		};
+
+		switch(i){
+		case 0:	l_addToAvg(contact_.lambdaAvg,		lambda_, contact_.numSolves);	break;
+		case 1:	l_addToAvg(contact_.lambdaAvgTan1,	lambda_, contact_.numSolves);	break;
+		case 2:	l_addToAvg(contact_.lambdaAvgTan2,	lambda_, contact_.numSolves);	break;
+		}
+
+
 		// Solve and apply
 		calcVelCor();
 		apply();
+
+		solved &= calcConstraint();
 	}
 
 	firstSolve_ = false;
+	contact_.numSolves++;
+
+	return solved;
 }
 
 // Necessary for some reason

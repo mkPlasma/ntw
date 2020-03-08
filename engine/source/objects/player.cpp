@@ -3,7 +3,7 @@
 #include"physics/physDefine.h"
 
 
-Player::Player(ControlOptions& cOptions, Window& window) : PhysicsObject(nullptr, HITBOX_CUBE, 5),
+Player::Player(ControlOptions& cOptions, Window& window) : PhysicsObject(nullptr, nullptr, HitboxType::CUBE, 5),
 	cOptions_(cOptions), window_(window), yaw_(0), pitch_(0), noclip_(false) {
 
 }
@@ -14,13 +14,20 @@ void Player::initPlayer(){
 	setScale(Vec3(0.25f, 0.25f, 1.0f));
 
 	// Disable rotation from physics updates
-	setAllowRotation(false);
+	setUseRotation(false);
 
 	// Initialize look vectors
 	updateLookVectors();
+
+	// TEMPORARY NOCLIP ENABLE
+	/*
+	noclip_ = true;
+	hitboxType_ = NONE;
+	setUseGravity(false);
+	*/
 }
 
-void Player::updatePlayer(const bool& updatePhysics){
+void Player::updatePlayer(bool updatePhysics){
 
 	// Only update if mouse is locked
 	if(!window_.isMouseLocked())
@@ -47,6 +54,9 @@ void Player::updatePlayer(const bool& updatePhysics){
 	if(pitch_ > 90)		pitch_ = 90;
 
 
+	// Noclip
+	//if(window_.isKeyDown(cOptions_.keys[NTW_KEY_NOCLIP]))
+
 	// Update look vectors
 	if(mouseX != 0 || mouseY != 0)
 		updateLookVectors();
@@ -61,10 +71,10 @@ void Player::updatePlayer(const bool& updatePhysics){
 	int mc = 0;
 	
 	// Get direction of movement
-	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_FORWARDS])){	velAdd += look_;		mc++;}
-	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_BACKWARDS])){	velAdd += -look_;		mc++;}
-	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_RIGHT])){		velAdd += lookLat_;		mc++;}
-	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_LEFT])){		velAdd += -lookLat_;	mc++;}
+	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_FORWARDS])){	velAdd += move_;		mc++;}
+	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_BACKWARDS])){	velAdd += -move_;		mc++;}
+	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_RIGHT])){		velAdd += lookRight_;	mc++;}
+	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_LEFT])){		velAdd += -lookRight_;	mc++;}
 
 	// Average direction and multiply by speed
 	velAdd *= speedMult / mc;
@@ -74,11 +84,14 @@ void Player::updatePlayer(const bool& updatePhysics){
 		// This limits speed increase when already moving in this direction
 		//if(velocity_.nonzero())
 		//	velAdd -= velocity_.compOn(velAdd);
-		velocity_ += velAdd;
+		if(!noclip_)
+			velocity_ += velAdd;
+		else
+			position_ += velAdd / 4.0f;
 	}
 
 	// Jumping
-	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_JUMP]))
+	if(window_.isKeyDown(cOptions_.keys[NTW_KEY_JUMP]) && !noclip_)
 		velocity_.setZ(2.0f);
 
 
@@ -105,8 +118,10 @@ void Player::updatePlayer(const bool& updatePhysics){
 }
 
 void Player::updateLookVectors(){
-	look_ = Vec3(yaw_ - 90, noclip_ ? pitch_ : 0);
-	lookLat_ = Vec3(yaw_ - 180, 0);
+	look_		= Vec3(yaw_ - 90, pitch_);
+	lookRight_	= Vec3(yaw_ - 180, 0);
+	lookUp_		= Vec3(yaw_ - 90, pitch_ + 90);
+	move_		= noclip_ ? look_ : Vec3(yaw_ - 90, 0);
 }
 
 
@@ -116,4 +131,16 @@ float Player::getYaw(){
 
 float Player::getPitch(){
 	return pitch_;
+}
+
+const Vec3& Player::getLookVector(){
+	return look_;
+}
+
+const Vec3& Player::getLookRightVector(){
+	return lookRight_;
+}
+
+const Vec3& Player::getLookUpVector(){
+	return lookUp_;
 }

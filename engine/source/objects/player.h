@@ -21,18 +21,25 @@ class Player : public PhysicsObject{
     
     bool noclip_;
 
+    // Directional vectors
     Vec3 look_;
-    Vec3 lookLat_;
+    Vec3 lookRight_;
+    Vec3 lookUp_;
+    Vec3 move_;
 
 public:
     Player(ControlOptions& cOptions, Window& window);
 
     void initPlayer();
-    void updatePlayer(const bool& updatePhysics);
+    void updatePlayer(bool updatePhysics);
 
     void updateLookVectors();
 
 
     float getYaw();
     float getPitch();
+
+    const Vec3& getLookVector();
+    const Vec3& getLookRightVector();
+    const Vec3& getLookUpVector();
 };

@@ -13,10 +13,11 @@
 
 class PhysicsObject : public Object {
 protected:
-	float mass_;
+	const float mass_;
 	float massInv_;
 
-	bool allowRotation_;
+	bool useRotation_;
+	bool useGravity_;
 
 	Matrix inertiaBase_;
 	Matrix inertiaBaseInv_;
@@ -33,21 +34,22 @@ protected:
 	Vec3 acceleration_;
 
 public:
-	PhysicsObject(Model* model, const int& hitboxType, const float& mass);
+	PhysicsObject(Model* model, Material* material, HitboxType hitboxType, float mass);
 
 	// Initialize inertia matrix and t-variables
-	void init();
+	void initPhysics();
 
 	// Update object physics
-	void update();
+	void updatePhysics();
 
 	// Partial update during simulation step
-	void tUpdate();
+	void tUpdatePhysics();
 
 
 	void updateTInertia();
 
-	void setAllowRotation(bool allowRotation);
+	void setUseRotation(bool useRotation);
+	void setUseGravity(bool useGravity);
 
 	void setVelocity(const Vec3& velocity);
 	void addVelocity(const Vec3& velocity);
@@ -59,12 +61,15 @@ public:
 
 	float getMass();
 	float getMassInv();
-	Matrix getInertiaBase();
-	Matrix getTInertiaInv();
+	const Matrix& getInertiaBase();
+	const Matrix& getTInertiaInv();
 
-	Vec3 getTPosition();
-	Quaternion getTRotation();
+	bool useGravity();
+	bool useRotation();
 
-	Vec3 getVelocity();
-	Vec3 getAngularVelocity();
+	const Vec3& getTPosition();
+	const Quaternion& getTRotation();
+
+	const Vec3& getVelocity();
+	const Vec3& getAngularVelocity();
 };

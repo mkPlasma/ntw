@@ -46,14 +46,16 @@ protected:
 
 	float bias_;
 
+	bool firstSolve_;
+
 	// If true, constraint will be applied on C < 0 rather than C != 0
 	bool constrainGreaterThanZero_;
 
 public:
-	Constraint(Object* object1, Object* object2, const bool& constrainGreaterThanZero = false);
+	Constraint(Object* object1, Object* object2, bool constrainGreaterThanZero = false);
 
-	void init();
-	virtual void solve();
+	virtual void init();
+	virtual bool solve();
 
 	// Calculate constraint values
 	// Return true if constraint is satisfied

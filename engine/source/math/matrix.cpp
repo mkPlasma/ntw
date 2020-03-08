@@ -21,7 +21,7 @@ Matrix::Matrix() : rows_(4), cols_(4) {
 }
 
 // Initialize to all zeros or identity matrix
-Matrix::Matrix(const int& rows, const int& cols, const bool& identity) : rows_(rows), cols_(cols) {
+Matrix::Matrix(int rows, int cols, bool identity) : rows_(rows), cols_(cols) {
 	values_ = mat((size_t)rows * cols);
 
 	if(identity){
@@ -33,7 +33,7 @@ Matrix::Matrix(const int& rows, const int& cols, const bool& identity) : rows_(r
 }
 
 // Initialize to given values
-Matrix::Matrix(mat values, const int& rows, const int& cols) : values_(values), rows_(rows), cols_(cols) {
+Matrix::Matrix(mat values, int rows, int cols) : values_(values), rows_(rows), cols_(cols) {
 
 	// Check value list is correctly sized
 	if(values_.size() != (size_t)rows * cols)
@@ -43,7 +43,7 @@ Matrix::Matrix(mat values, const int& rows, const int& cols) : values_(values), 
 }
 
 // Initialize to 4D projection matrix
-Matrix::Matrix(const float& fovy, const float& aspect, const float& zNear, const float& zFar) : rows_(4), cols_(4) {
+Matrix::Matrix(float fovy, float aspect, float zNear, float zFar) : rows_(4), cols_(4) {
 
 	float f = 1 / tanf(toRadians(fovy) / 2);
 	float zr = zNear - zFar;
@@ -124,7 +124,7 @@ Vec3 operator*(const Matrix& a, const Vec3& b){
 	);
 }
 
-Matrix operator*(const Matrix& a, const float& b){
+Matrix operator*(const Matrix& a, float b){
 
 	int rows = a.getNumRows();
 	int cols = a.getNumCols();
@@ -138,7 +138,7 @@ Matrix operator*(const Matrix& a, const float& b){
 	return result;
 }
 
-Matrix operator/(const Matrix& a, const float& b){
+Matrix operator/(const Matrix& a, float b){
 
 	int rows = a.getNumRows();
 	int cols = a.getNumCols();
@@ -165,16 +165,16 @@ Matrix& Matrix::operator*=(const Matrix& a){
 	return *this = *this * a;
 }
 
-Matrix& Matrix::operator*=(const float& a){
+Matrix& Matrix::operator*=(float a){
 	return *this = *this * a;
 }
 
-Matrix& Matrix::operator/=(const float& a){
+Matrix& Matrix::operator/=(float a){
 	return *this = *this / a;
 }
 
 
-Matrix& Matrix::translate(const float& x, const float& y, const float& z){
+Matrix& Matrix::translate(float x, float y, float z){
 	Matrix t = Matrix();
 	t.set(0, 3, x);
 	t.set(1, 3, y);
@@ -187,7 +187,7 @@ Matrix& Matrix::translate(const Vec3& v){
 	return translate(v[0], v[1], v[2]);
 }
 
-Matrix& Matrix::scale(const float& x, const float& y, const float& z){
+Matrix& Matrix::scale(float x, float y, float z){
 	Matrix t = Matrix();
 	t.set(0, 0, x);
 	t.set(1, 1, y);
@@ -221,7 +221,7 @@ Matrix& Matrix::rotate(const Quaternion& q){
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(Vec3 axis, const float& ang){
+Matrix& Matrix::rotate(Vec3 axis, float ang){
 
 	float c = cosf(toRadians(ang));
 	float s = sinf(toRadians(ang));
@@ -245,7 +245,7 @@ Matrix& Matrix::rotate(Vec3 axis, const float& ang){
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(const float& x, const float& y, const float& z){
+Matrix& Matrix::rotate(float x, float y, float z){
 
 	float cx = cosf(toRadians(x));
 	float sx = sinf(toRadians(x));
@@ -277,7 +277,7 @@ Matrix& Matrix::rotate(const Vec3& v){
 }
 
 
-Matrix& Matrix::place(const int& row, const int& col, const Matrix& a){
+Matrix& Matrix::place(int row, int col, const Matrix& a){
 
 	int cols = a.getNumCols();
 	int rows = a.getNumRows();
@@ -289,7 +289,7 @@ Matrix& Matrix::place(const int& row, const int& col, const Matrix& a){
 	return *this;
 }
 
-Matrix& Matrix::place(const int& row, const int& col, const Vec3& a, const bool& asRowVector){
+Matrix& Matrix::place(int row, int col, const Vec3& a, bool asRowVector){
 
 	for(int i = 0; i < 3; i++)
 		set(row + (!asRowVector ? i : 0), col + (asRowVector ? i : 0), a[i]);
@@ -297,7 +297,7 @@ Matrix& Matrix::place(const int& row, const int& col, const Vec3& a, const bool&
 	return *this;
 }
 
-void Matrix::swapRows(const int& row1, const int& row2){
+void Matrix::swapRows(int row1, int row2){
 
 	if(row1 == row2)
 		return;
@@ -309,7 +309,7 @@ void Matrix::swapRows(const int& row1, const int& row2){
 	}
 }
 
-Matrix Matrix::getSubMatrix(const int& row, const int& col, const int& numRows, const int& numCols) const{
+Matrix Matrix::getSubMatrix(int row, int col, int numRows, int numCols) const{
 	mat values;
 
 	for(int r = 0; r < numRows; r++)
@@ -453,11 +453,11 @@ const float* Matrix::getValuesPtr() const{
 }
 
 
-float Matrix::get(const int& row, const int& col) const{
+float Matrix::get(int row, int col) const{
 	return values_[(size_t)row*cols_ + col];
 }
 
-void Matrix::set(const int& row, const int& col, float value){
+void Matrix::set(int row, int col, float value){
 	values_[(size_t)row * cols_ + col] = value;
 }
 

@@ -110,7 +110,7 @@ void Engine::gameLoop(){
 	finish();
 }
 
-void Engine::render(const int& time, const float& delta){
+void Engine::render(int time, float delta){
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

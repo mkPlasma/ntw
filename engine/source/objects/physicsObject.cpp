@@ -3,20 +3,20 @@
 #include"physics/physDefine.h"
 
 
-PhysicsObject::PhysicsObject(Model* model, const int& hitboxType, const float& mass) :
-	Object(model, model == nullptr ? RENDER_NONE : RENDER_DYNAMIC, PHYS_DYNAMIC, hitboxType),
-	mass_(mass), massInv_(1 / mass), allowRotation_(true) {
+PhysicsObject::PhysicsObject(Model* model, Material* material, HitboxType hitboxType, float mass) :
+	Object(model, material, model == nullptr ? RenderType::NONE : RenderType::DYNAMIC, PhysicsType::DYNAMIC, hitboxType),
+	mass_(mass), massInv_(1 / mass), useRotation_(true), useGravity_(true) {
 	
 }
 
-void PhysicsObject::init(){
+void PhysicsObject::initPhysics(){
 
 	// T-variables
 	tPosition_ = position_;
 	tRotation_ = rotation_;
 
 	// Calculate inertia values if rotation is allowed
-	if(allowRotation_){
+	if(useRotation_){
 		// Base inertia tensor (no rotation)
 		inertiaBase_ = Matrix(3, 3);
 
@@ -38,14 +38,14 @@ void PhysicsObject::init(){
 		tInertiaInv_ = Matrix(3, 3);
 }
 
-void PhysicsObject::update(){
+void PhysicsObject::updatePhysics(){
 
 	// Update velocity and position
 	velocity_ += acceleration_ * PHYS_TIMESTEP;
 	position_ += velocity_ * PHYS_TIMESTEP;
 
 	// Update rotation
-	if(allowRotation_){
+	if(useRotation_){
 		float angVelMag = angularVelocity_.magnitude();
 		rotation_.rotate(angularVelocity_, angVelMag * PHYS_TIMESTEP);
 	}
@@ -58,13 +58,13 @@ void PhysicsObject::update(){
 	tRotation_ = rotation_;
 }
 
-void PhysicsObject::tUpdate(){
+void PhysicsObject::tUpdatePhysics(){
 
 	// Update position
 	tPosition_ += (velocity_ + acceleration_) * PHYS_TIMESTEP;
 
 	// Update rotation
-	if(allowRotation_){
+	if(useRotation_){
 		float angVelMag = angularVelocity_.magnitude();
 		tRotation_.rotate(angularVelocity_, angVelMag * PHYS_TIMESTEP);
 
@@ -79,8 +79,12 @@ void PhysicsObject::updateTInertia(){
 	tInertiaInv_ = tRot * inertiaBaseInv_ * tRot.getTranspose();
 }
 
-void PhysicsObject::setAllowRotation(bool allowRotation){
-	allowRotation_ = allowRotation;
+void PhysicsObject::setUseRotation(bool useRotation){
+	useRotation_ = useRotation;
+}
+
+void PhysicsObject::setUseGravity(bool useGravity){
+	useGravity_ = useGravity;
 }
 
 void PhysicsObject::setVelocity(const Vec3& velocity){
@@ -111,26 +115,34 @@ float PhysicsObject::getMassInv(){
 	return massInv_;
 }
 
-Matrix PhysicsObject::getInertiaBase(){
+const Matrix& PhysicsObject::getInertiaBase(){
 	return inertiaBase_;
 }
 
-Matrix PhysicsObject::getTInertiaInv(){
+const Matrix& PhysicsObject::getTInertiaInv(){
 	return tInertiaInv_;
 }
 
-Vec3 PhysicsObject::getTPosition(){
+bool PhysicsObject::useRotation(){
+	return useRotation_;
+}
+
+bool PhysicsObject::useGravity(){
+	return useGravity_;
+}
+
+const Vec3& PhysicsObject::getTPosition(){
 	return tPosition_;
 }
 
-Quaternion PhysicsObject::getTRotation(){
+const Quaternion& PhysicsObject::getTRotation(){
 	return tRotation_;
 }
 
-Vec3 PhysicsObject::getVelocity(){
+const Vec3& PhysicsObject::getVelocity(){
 	return velocity_;
 }
 
-Vec3 PhysicsObject::getAngularVelocity(){
+const Vec3& PhysicsObject::getAngularVelocity(){
 	return angularVelocity_;
 }

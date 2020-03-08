@@ -30,11 +30,11 @@ public:
 
     void init();
 
-    void setMouseLock(const bool& lock);
+    void setMouseLock(bool lock);
     void centerMousePosition();
 
-    bool isKeyDown(const int& key);
-    bool isMouseButtonDown(const int& button);
+    bool isKeyDown(int key);
+    bool isMouseButtonDown(int button);
 
     int getMouseX();
     int getMouseY();

@@ -1,8 +1,9 @@
 #include"physicsEngine.h"
 
-#include"mprCollision.h"
-#include"physDefine.h"
+#include"physics/mprCollision.h"
+#include"physics/physDefine.h"
 #include"math/mathFunc.h"
+#include"core/error.h"
 #include<algorithm>
 #include<limits>
 
@@ -15,7 +16,7 @@ void PhysicsEngine::initAABBCollisions(){
 
 	// Generate AABB interval lists
 	for(auto i = objects_.begin(); i != objects_.end(); i++){
-		if((*i)->getPhysicsType() != PHYS_NONE){
+		if((*i)->getPhysicsType() != PhysicsType::NONE){
 
 			// Add intervals
 			vector<float> positions = getCollisionInterval(*i);
@@ -48,7 +49,7 @@ void PhysicsEngine::initAABBCollisions(){
 				for(auto k = active.begin(); k != active.end() - 1; k++){
 
 					// Only need to process collisions with dynamic objects
-					if((*j).object->getPhysicsType() != PHYS_DYNAMIC && (*k)->object->getPhysicsType() != PHYS_DYNAMIC)
+					if((*j).object->getPhysicsType() != PhysicsType::DYNAMIC && (*k)->object->getPhysicsType() != PhysicsType::DYNAMIC)
 						continue;
 
 					ObjectPair collision = ObjectPair{(*j).object, (*k)->object};
@@ -103,8 +104,8 @@ void PhysicsEngine::checkCollisions(){
 			// Get contact
 			Contact contact = collisionTest.getContact();
 
-			// If the penetration vector is all zeroes, discard the collision
-			if(contact.penetration == Vec3())
+			// Check vaildity of contact values
+			if(contact.normal.isZero() || contact.normal.isNan())
 				goto aabbLoop;
 
 			colliding.push_back(i->first);
@@ -120,22 +121,30 @@ void PhysicsEngine::checkCollisions(){
 					// Check validity of existing contacts
 					if(!m.checked){
 						for(int k = 0; k < m.contacts.size(); k++){
-							if(!checkContactValidity(m.objects, m.contacts[k]))
+							if(!checkContactValidity(m.objects, m.contacts[k])){
 								m.contacts.erase(m.contacts.begin() + k--);
+								continue;
+							}
+
+							// Contact is no longer new
+							m.contacts[k].isNew = false;
 						}
 
 						m.checked = true;
 					}
-					
 
-					// If the contact is close enough to an existing one, do not add it
+					// Check if the contact is close enough to an existing one
 					for(auto k = m.contacts.begin(); k != m.contacts.end(); k++){
 						if(
 							contact.obj1ContactGlobal.equalsWithinThreshold((*k).obj1ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD) &&
 							contact.obj2ContactGlobal.equalsWithinThreshold((*k).obj2ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD)
 							){
-							*k = contact;
-							(*k).persistent = true;
+							// If it is and the old contact is invalid, replace it
+							if(!(*k).valid){
+								contact.isNew = false;
+								*k = contact;
+							}
+
 							goto aabbLoop;
 						}
 					}
@@ -179,6 +188,7 @@ void PhysicsEngine::checkCollisions(){
 			}
 
 			// If no manifold was found, create new contact object
+			contact.valid = true;
 			ContactManifold m;
 			m.objects = i->first;
 			m.contacts = {contact};
@@ -208,12 +218,19 @@ void PhysicsEngine::checkCollisions(){
 		// Reset checked flag for next update
 		m.checked = false;
 
-		for(int k = 0; k < m.contacts.size(); k++)
-			if(!m.contacts[k].persistent)
+		// Remove invalid contacts
+		for(int k = 0; k < m.contacts.size(); k++){
+			if(!m.contacts[k].valid)
 				m.contacts.erase(m.contacts.begin() + k--);
+			// Reset validity to check again next update
+			else
+				m.contacts[k].valid = false;
+		}
 
-		if(m.contacts.empty())
+		if(m.contacts.empty()){
 			contactManifolds_.erase(contactManifolds_.begin() + i--);
+			continue;
+		}
 
 		// If there are more than 4 contacts, find which to keep
 		if(m.contacts.size() > 4)
@@ -223,32 +240,14 @@ void PhysicsEngine::checkCollisions(){
 
 			Contact& c = m.contacts[j];
 
-			/*
-			// Check contact validity and discard if invalid
-			if(!c.valid){
-				m.contacts.erase(m.contacts.begin() + j--);
-
-				// If there are no more contacts, remove the manifold
-				if(m.contacts.size() == 0){
-					contactManifolds_.erase(contactManifolds_.begin() + i--);
-					goto manifoldLoop;
-				}
-
-				continue;
-			}
-			*/
-
-			// Zero out lagrangian sums from previous update for non-persistent contacts
-			//if(!c.persistent){
-			//	c.lambdaSum		= 0;
-			//	c.lambdaSumTan1	= 0;
-			//	c.lambdaSumTan2	= 0;
-			//}
+			// Zero out lambda averages
+			c.lambdaAvg		= 0;
+			c.lambdaAvgTan1	= 0;
+			c.lambdaAvgTan2	= 0;
 
 			// Add contact constraint
 			contactConstraints_.push_back(ContactConstraint(c, m.objects));
 		}
-	//manifoldLoop:;
 	}
 }
 
@@ -257,7 +256,7 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 	for(auto obj = objects_.begin(); obj != objects_.end(); obj++){
 
 		// Only need to update semi-dynamic and dynamic objects
-		if((*obj)->getPhysicsType() == PHYS_NONE || (*obj)->getPhysicsType() == PHYS_STATIC)
+		if((*obj)->getPhysicsType() == PhysicsType::NONE || (*obj)->getPhysicsType() == PhysicsType::STATIC)
 			continue;
 
 		// Get new interval
@@ -265,12 +264,23 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 
 		// Find intervals corresponding to this object
 		for(int i = 0; i < 3; i++){
+
+			// Count intervals updated
+			int c = 0;
+
 			for(auto k = aabbCollisionIntervals_[i].begin(); k != aabbCollisionIntervals_[i].end(); k++){
 
 				// If matched, replace position based on start flag
-				if((*k).object == *obj)
+				if((*k).object == *obj){
 					(*k).position = (*k).start ? positions[i * 2] : positions[i * 2 + 1];
+					c++;
+
+					// Once both intervals have been added, exit this loop
+					if(c == 2)
+						goto intervalLoop;
+				}
 			}
+		intervalLoop:;
 		}
 	}
 
@@ -304,7 +314,7 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 				// If both are the same type, no change is performed
 				// Only need to process collisions with dynamic objects
 				if((first.start ^ second.start) &&
-					(first.object->getPhysicsType() == PHYS_DYNAMIC || second.object->getPhysicsType() == PHYS_DYNAMIC)){
+					(first.object->getPhysicsType() == PhysicsType::DYNAMIC || second.object->getPhysicsType() == PhysicsType::DYNAMIC)){
 
 					ObjectPair collision = ObjectPair{first.object, second.object};
 
@@ -334,17 +344,17 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 
 vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 
-	Vec3 position = obj->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)obj)->getTPosition() : obj->getPosition();
+	Vec3 position = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTPosition() : obj->getPosition();
 	Vec3 scale = obj->getScale();
-	Quaternion rotation = obj->getPhysicsType() == PHYS_DYNAMIC ? ((PhysicsObject*)obj)->getTRotation() : obj->getRotation();
+	Quaternion rotation = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTRotation() : obj->getRotation();
 	Matrix transform = Matrix(3, 3, true);
 
 	float x1, x2, y1, y2, z1, z2;
 	x1 = y1 = z1 = std::numeric_limits<float>::max();
-	x2 = y2 = z2 = std::numeric_limits<float>::min();
+	x2 = y2 = z2 = -x1;
 
 	switch(obj->getHitboxType()){
-	case HITBOX_CUBE:
+	case HitboxType::CUBE:
 		transform.rotate(rotation);
 
 		// Use pre-defined half-cube vertices for hitbox
@@ -368,9 +378,10 @@ vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 			y1 = min(min(y1, v1[1]), v2[1]);	y2 = max(max(y2, v1[1]), v2[1]);
 			z1 = min(min(z1, v1[2]), v2[2]);	z2 = max(max(z2, v1[2]), v2[2]);
 		}
+
 		break;
 
-	case HITBOX_SPHERE:
+	case HitboxType::SPHERE:
 		x1 = position[0] - scale[0];	x2 = position[0] + scale[0];
 		y1 = position[1] - scale[1];	y2 = position[1] + scale[1];
 		z1 = position[2] - scale[2];	z2 = position[2] + scale[2];
@@ -378,7 +389,7 @@ vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 
 
 		// TEMPORARY
-	case HITBOX_MESH:{
+	case HitboxType::MESH:{
 		transform.rotate(rotation);
 
 		// Get unique vertices
@@ -427,8 +438,8 @@ bool PhysicsEngine::checkContactValidity(ObjectPair& objects, Contact& c){
 	
 	Object* obj1 = objects.object1;
 	Object* obj2 = objects.object2;
-	bool obj1Dynamic = obj1->getPhysicsType() == PHYS_DYNAMIC;
-	bool obj2Dynamic = obj2->getPhysicsType() == PHYS_DYNAMIC;
+	bool obj1Dynamic = obj1->getPhysicsType() == PhysicsType::DYNAMIC;
+	bool obj2Dynamic = obj2->getPhysicsType() == PhysicsType::DYNAMIC;
 	Vec3 obj1Pos = obj1Dynamic ? ((PhysicsObject*)obj1)->getTPosition() : obj1->getPosition();
 	Vec3 obj2Pos = obj2Dynamic ? ((PhysicsObject*)obj2)->getTPosition() : obj2->getPosition();
 
@@ -451,24 +462,26 @@ bool PhysicsEngine::checkContactValidity(ObjectPair& objects, Contact& c){
 	obj1ContactGlobalU += obj1Pos;
 	obj2ContactGlobalU += obj2Pos;
 
-
 	// If valid, set as persistent
-	c.persistent =
-		c.penetration.unitVector() * (obj2ContactGlobalU - obj1ContactGlobalU) >= 0 &&
-		obj1ContactGlobalU.equalsWithinThreshold(c.obj1ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD) &&
-		obj2ContactGlobalU.equalsWithinThreshold(c.obj2ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD);
+	c.valid =
+		c.normal * (obj2ContactGlobalU - obj1ContactGlobalU) >= 0;// &&
+	//	obj1ContactGlobalU.equalsWithinThreshold(c.obj1ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD) &&
+	//	obj2ContactGlobalU.equalsWithinThreshold(c.obj2ContactGlobal, PHYS_CONTACT_UPDATE_THRESHOLD);
+
+	//c.valid = true;
 
 	// Update contact points and vectors
 	/*
-	if(c.persistent){
-		Vec3 diff = (obj1ContactGlobalU - c.obj1ContactGlobal) + (obj2ContactGlobalU - c.obj2ContactGlobal);
-		c.obj1ContactGlobal += diff;
-		c.obj2ContactGlobal += diff;
+	if(c.valid){
+		Vec3 obj1Diff = obj1ContactGlobalU - c.obj1ContactGlobal;
+		Vec3 obj2Diff = obj2ContactGlobalU - c.obj2ContactGlobal;
+		c.obj1ContactGlobal += obj1Diff + obj2Diff - obj2Diff.compOn(c.normal);
+		c.obj2ContactGlobal += obj2Diff + obj1Diff - obj1Diff.compOn(c.normal);
 		c.obj1ContactVector = c.obj1ContactGlobal - obj1Pos;
 		c.obj2ContactVector = c.obj2ContactGlobal - obj2Pos;
 	}
 	*/
-	return c.persistent;
+	return c.valid;
 }
 
 void PhysicsEngine::findOptimalContacts(ContactManifold& m){
@@ -477,7 +490,7 @@ void PhysicsEngine::findOptimalContacts(ContactManifold& m){
 	Contact* first = &m.contacts[0];
 	float dist = 0;
 	for(auto i = m.contacts.begin(); i != m.contacts.end(); i++){
-		float curDist = (*i).penetration.magnitude2();
+		float curDist = (*i).penetrationDepth;
 
 		if(curDist > dist){
 			first = &*i;

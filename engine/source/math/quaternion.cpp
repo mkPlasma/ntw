@@ -10,7 +10,7 @@ Quaternion::Quaternion() : w_(1), x_(0), y_(0), z_(0) {
 }
 
 
-Quaternion::Quaternion(const float& w, const float& x, const float& y, const float& z) :
+Quaternion::Quaternion(float w, float x, float y, float z) :
 	w_(w), x_(x), y_(y), z_(z) {
 
 }
@@ -52,7 +52,7 @@ Quaternion operator*(const Quaternion& a, const Quaternion& b){
 	);
 }
 
-Quaternion operator*(const Quaternion& a, const float& b){
+Quaternion operator*(const Quaternion& a, float b){
 	return Quaternion(
 		a[0] * b,
 		a[1] * b,
@@ -61,7 +61,7 @@ Quaternion operator*(const Quaternion& a, const float& b){
 	);
 }
 
-Quaternion operator/(const Quaternion& a, const float& b){
+Quaternion operator/(const Quaternion& a, float b){
 	return Quaternion(
 		a[0] / b,
 		a[1] / b,
@@ -82,11 +82,11 @@ Quaternion& Quaternion::operator*=(const Quaternion& a){
 	return *this = *this * a;
 }
 
-Quaternion& Quaternion::operator*=(const float& a){
+Quaternion& Quaternion::operator*=(float a){
 	return *this = *this * a;
 }
 
-Quaternion& Quaternion::operator/=(const float& a){
+Quaternion& Quaternion::operator/=(float a){
 	return *this = *this / a;
 }
 
@@ -97,7 +97,7 @@ bool operator==(const Quaternion& a, const Quaternion& b){
 			a[3] == b[3];
 }
 
-float Quaternion::operator[](const int& a) const{
+float Quaternion::operator[](int a) const{
 	switch(a){
 	case 0:	return w_;
 	case 1:	return x_;
@@ -109,7 +109,7 @@ float Quaternion::operator[](const int& a) const{
 }
 
 
-void Quaternion::setRotation(Vec3 axis, const float& ang){
+void Quaternion::setRotation(Vec3 axis, float ang){
 
 	if(axis.magnitude() == 0)
 		return;
@@ -123,7 +123,7 @@ void Quaternion::setRotation(Vec3 axis, const float& ang){
 	z_ = axis[2];
 }
 
-void Quaternion::setRotation(const float& x, const float& y, const float& z, const float& ang){
+void Quaternion::setRotation(float x, float y, float z, float ang){
 	setRotation(Vec3(x, y, z), ang);
 }
 
@@ -142,11 +142,11 @@ void Quaternion::setRotation(const Vec3& euler){
 	z_ = cx * cy * sz - sx * sy * cz;
 }
 
-void Quaternion::setRotation(const float& x, const float& y, const float& z){
+void Quaternion::setRotation(float x, float y, float z){
 	setRotation(Vec3(x, y, z));
 }
 
-Quaternion& Quaternion::rotate(const Vec3& axis, const float& ang){
+Quaternion& Quaternion::rotate(const Vec3& axis, float ang){
 
 	Quaternion r;
 	r.setRotation(axis, ang);
@@ -154,7 +154,7 @@ Quaternion& Quaternion::rotate(const Vec3& axis, const float& ang){
 	return (*this = r * *this).normalize();
 }
 
-Quaternion& Quaternion::rotate(const float& x, const float& y, const float& z, const float& ang){
+Quaternion& Quaternion::rotate(float x, float y, float z, float ang){
 	return rotate(Vec3(x, y, z), ang);
 }
 
@@ -166,7 +166,7 @@ Quaternion& Quaternion::rotate(const Vec3& euler){
 	return (*this = r * *this).normalize();
 }
 
-Quaternion& Quaternion::rotate(const float& x, const float& y, const float& z){
+Quaternion& Quaternion::rotate(float x, float y, float z){
 	return rotate(Vec3(x, y, z));
 }
 

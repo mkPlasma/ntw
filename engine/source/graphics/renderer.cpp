@@ -1,6 +1,6 @@
-#include "renderer.h"
+#include"renderer.h"
 
-#include"modelFunc.h"
+#include"graphics/modelFunc.h"
 #include"math/mathFunc.h"
 #include"physics/physDefine.h"
 #include<math.h>
@@ -40,32 +40,6 @@ void Renderer::initWorldRendering(World* world){
 	// Set world
 	world_ = world;
 
-	// Load and keep track of textures
-	vector<Texture*>& textures = world->getTextures();
-	worldTextures_.clear();
-
-	for(Texture* tex : textures){
-
-		// Create texture
-		GLuint textureID;
-		glGenTextures(1, &textureID);
-		glBindTexture(GL_TEXTURE_2D, textureID);
-
-		// Store texture and ID
-		worldTextures_.insert({tex, textureID});
-
-		// Texture interpolation
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-		// Write data
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex->width, tex->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex->data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-
 	// Batch objects and write data
 	vector<Object*>& objects = world->getObjects();
 	objectBatches_.clear();
@@ -74,19 +48,18 @@ void Renderer::initWorldRendering(World* world){
 	// Batches for dynamic objects will contain only one object
 	for(auto obj = objects.begin(); obj != objects.end(); obj++){
 
-		int type = (*obj)->getRenderType();
+		RenderType type = (*obj)->getRenderType();
 
-		if(type == RENDER_NONE)
+		if(type == RenderType::NONE)
 			continue;
 
-		int texID = worldTextures_[(*obj)->getModel()->texture];
 		bool added = false;
 
 		// For static objects only:
 		// If a batch for this texture already exists, add the object to it
-		if(type == RENDER_STATIC){
+		if(type == RenderType::STATIC){
 			for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
-				if((*batch).renderType == type && (*batch).textureID == texID){
+				if((*batch).renderType == type && (*batch).material == (*obj)->getMaterial()){
 					(*batch).objects.push_back(*obj);
 					added = true;
 					break;
@@ -98,7 +71,7 @@ void Renderer::initWorldRendering(World* world){
 		if(!added){
 			ObjectBatch b;
 			b.renderType = type;
-			b.textureID = texID;
+			b.material = (*obj)->getMaterial();
 			b.objects.push_back(*obj);
 
 			objectBatches_.push_back(b);
@@ -117,7 +90,7 @@ void Renderer::initWorldRendering(World* world){
 		for(auto obj = (*batch).objects.begin(); obj != (*batch).objects.end(); obj++){
 			// For static objects, get temporary model with object transformations applied
 			// For dynamic objects, transformations will be applied in the shader, so get standard model
-			Model m = (*batch).renderType == RENDER_STATIC ? ntw::getTransformedObjectModel(**obj) : *(*obj)->getModel();
+			Model m = (*batch).renderType == RenderType::STATIC ? ntw::getTransformedObjectModel(**obj) : *(*obj)->getModel();
 
 			// Copy data
 			std::copy(m.vertices.begin(),	m.vertices.end(),	std::back_inserter(vertices));
@@ -175,12 +148,6 @@ void Renderer::initWorldRendering(World* world){
 
 void Renderer::cleanupWorldRendering(){
 
-	// Delete world textures
-	for(auto i = worldTextures_.begin(); i != worldTextures_.end(); i++)
-		glDeleteTextures(1, (const GLuint*)&(i->second));
-
-	worldTextures_.clear();
-
 	// Delete object VAOs
 	for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
 
@@ -196,13 +163,15 @@ void Renderer::cleanupWorldRendering(){
 	objectBatches_.clear();
 }
 
-void Renderer::renderWorld(const int& time, const float& delta){
+void Renderer::renderWorld(int time, float delta){
+
+	delta *= PHYS_DELTA_MULT;
 
 	// World camera
 	Camera& camera = world_->getCamera();
 
 	// Interpolate position
-	Vec3 camPos = camera.position + camera.velocity * delta / PHYS_TIMESTEP;
+	Vec3 camPos = camera.position + camera.velocity * delta;
 
 	// View and projection matrix
 	Matrix viewProj;
@@ -216,7 +185,7 @@ void Renderer::renderWorld(const int& time, const float& delta){
 	viewProj.transpose();
 
 	// Apply projection matrix
-	viewProj *= Matrix(gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, 0.01f, 1000);
+	viewProj *= Matrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, 0.01f, 1000);
 
 	// Write time and view position uniforms
 	shaderBasic_.use();
@@ -233,20 +202,20 @@ void Renderer::renderWorld(const int& time, const float& delta){
 	for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
 
 		// Add model matrix to MVP matrix if dynamic
-		if((*batch).renderType == RENDER_DYNAMIC){
+		if((*batch).renderType == RenderType::DYNAMIC){
 			Object* obj = (*batch).objects[0];
 
 			Vec3 position = obj->getPosition();
 			Quaternion rotation = obj->getRotation();
 
 			// Physics interpolation
-			if(obj->getPhysicsType() == PHYS_DYNAMIC){
-				position += ((PhysicsObject*)obj)->getVelocity() * delta / PHYS_TIMESTEP;
+			if(obj->getPhysicsType() == PhysicsType::DYNAMIC){
+				position += ((PhysicsObject*)obj)->getVelocity() * delta;
 
 				Vec3 angularVelocity = ((PhysicsObject*)obj)->getAngularVelocity();
 				float angVelMag = angularVelocity.magnitude();
 				if(angVelMag != 0)
-					rotation.rotate(angularVelocity / angVelMag, angVelMag * delta / PHYS_TIMESTEP);
+					rotation.rotate(angularVelocity / angVelMag, angVelMag * delta);
 			}
 
 			Matrix model;
@@ -263,7 +232,7 @@ void Renderer::renderWorld(const int& time, const float& delta){
 			glUniformMatrix4fv(modelUniformLoc_, 1, GL_FALSE, identity_.getValuesPtr());
 
 		// Bind texture
-		glBindTexture(GL_TEXTURE_2D, (*batch).textureID);
+		glBindTexture(GL_TEXTURE_2D, (*batch).material->texture);
 		
 		// Select VAO
 		glBindVertexArray((*batch).vaoID);
@@ -299,7 +268,8 @@ void Renderer::renderWorld(const int& time, const float& delta){
 
 
 	// TEMPORARY!
-	vector<ContactManifold> collisions = world_->getPhysicsEngine().getCollisions();
+	/*
+	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
 
 	shaderWireframe_.use();
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -315,8 +285,8 @@ void Renderer::renderWorld(const int& time, const float& delta){
 
 			Object* obj1 = (*i).objects.object1;
 			Object* obj2 = (*i).objects.object2;
-			bool obj1Dynamic = obj1->getPhysicsType() == PHYS_DYNAMIC;
-			bool obj2Dynamic = obj2->getPhysicsType() == PHYS_DYNAMIC;
+			bool obj1Dynamic = obj1->getPhysicsType() == PhysicsType::DYNAMIC;
+			bool obj2Dynamic = obj2->getPhysicsType() == PhysicsType::DYNAMIC;
 
 			Matrix obj1Rotation = Matrix(3, 3, true).rotate(
 				obj1Dynamic ? ((PhysicsObject*)obj1)->getTRotation() : obj1->getRotation()
@@ -356,9 +326,9 @@ void Renderer::renderWorld(const int& time, const float& delta){
 			verts.push_back((*j).obj2ContactGlobal[0]);
 			verts.push_back((*j).obj2ContactGlobal[1]);
 			verts.push_back((*j).obj2ContactGlobal[2]);
-			verts.push_back((*j).obj2ContactGlobal[0] + (*j).penetration[0] * 5);
-			verts.push_back((*j).obj2ContactGlobal[1] + (*j).penetration[1] * 5);
-			verts.push_back((*j).obj2ContactGlobal[2] + (*j).penetration[2] * 5);
+			verts.push_back((*j).obj2ContactGlobal[0] + (*j).normal[0]);
+			verts.push_back((*j).obj2ContactGlobal[1] + (*j).normal[1]);
+			verts.push_back((*j).obj2ContactGlobal[2] + (*j).normal[2]);
 		}
 	}
 
@@ -403,4 +373,5 @@ void Renderer::renderWorld(const int& time, const float& delta){
 	glDeleteVertexArrays(1, &vao);
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	*/
 }

@@ -20,15 +20,13 @@ class ContactConstraint : public Constraint{
 
 	float biasNormal_;
 
-	bool firstSolve_;
-
 	void setProperties(int type);
 
 public:
 	ContactConstraint(Contact& contact, ObjectPair& objects);
 
-	inline bool calcConstraint() override;
-	void solve() override;
+	void init() override;
+	bool solve() override;
 
 	// Necessary for some reason
 	ContactConstraint& operator=(const ContactConstraint& a);

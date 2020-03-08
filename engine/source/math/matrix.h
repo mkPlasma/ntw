@@ -26,45 +26,45 @@ public:
 	Matrix();
 
 	// Initialize to all zeros or identity matrix
-	Matrix(const int& rows, const int& cols, const bool& identity = false);
+	Matrix(int rows, int cols, bool identity = false);
 	
 	// Initialize to given values
-	Matrix(mat values, const int& rows, const int& cols);
+	Matrix(mat values, int rows, int cols);
 
 	// Initialize to 4D projection matrix
-	Matrix(const float& fovy, const float& aspect, const float& zNear, const float& zFar);
+	Matrix(float fovy, float aspect, float zNear, float zFar);
 
 
 	friend Matrix operator+(const Matrix& a, const Matrix& b);
 	friend Matrix operator-(const Matrix& a, const Matrix& b);
 	friend Matrix operator*(const Matrix& a, const Matrix& b);
 	friend Vec3 operator*(const Matrix& a, const Vec3& b);
-	friend Matrix operator*(const Matrix& a, const float& b);
-	friend Matrix operator/(const Matrix& a, const float& b);
+	friend Matrix operator*(const Matrix& a, float b);
+	friend Matrix operator/(const Matrix& a, float b);
 
 	Matrix& operator+=(const Matrix& a);
 	Matrix& operator-=(const Matrix& a);
 	Matrix& operator*=(const Matrix& a);
-	Matrix& operator*=(const float& a);
-	Matrix& operator/=(const float& a);
+	Matrix& operator*=(float a);
+	Matrix& operator/=(float a);
 
 
-	Matrix& translate(const float& x, const float& y, const float& z);
+	Matrix& translate(float x, float y, float z);
 	Matrix& translate(const Vec3& v);
 
-	Matrix& scale(const float& x, const float& y, const float& z);
+	Matrix& scale(float x, float y, float z);
 	Matrix& scale(const Vec3& v);
 
 	Matrix& rotate(const Quaternion& q);
-	Matrix& rotate(Vec3 axis, const float& ang);
-	Matrix& rotate(const float& x, const float& y, const float& z);
+	Matrix& rotate(Vec3 axis, float ang);
+	Matrix& rotate(float x, float y, float z);
 	Matrix& rotate(const Vec3& v);
 
 
-	Matrix& place(const int& row, const int& col, const Matrix& a);
-	Matrix& place(const int& row, const int& col, const Vec3& a, const bool& asRowVector = false);
-	Matrix getSubMatrix(const int& row, const int& col, const int& numRows, const int& numCols) const;
-	void swapRows(const int& row1, const int& row2);
+	Matrix& place(int row, int col, const Matrix& a);
+	Matrix& place(int row, int col, const Vec3& a, bool asRowVector = false);
+	Matrix getSubMatrix(int row, int col, int numRows, int numCols) const;
+	void swapRows(int row1, int row2);
 
 	void transpose();
 	Matrix getTranspose() const;
@@ -75,8 +75,8 @@ public:
 	mat getValues() const;
 	const float* getValuesPtr() const;
 
-	float get(const int& row, const int& col) const;
-	void set(const int& row, const int& col, float value);
+	float get(int row, int col) const;
+	void set(int row, int col, float value);
 
 	int getNumRows() const;
 	int getNumCols() const;

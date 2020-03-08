@@ -14,8 +14,8 @@ MPRCollision::MPRCollision(Object* object1, Object* object2) : object1_(object1)
 
 void MPRCollision::init(){
 
-	bool obj1Dynamic = object1_->getPhysicsType() == PHYS_DYNAMIC;
-	bool obj2Dynamic = object2_->getPhysicsType() == PHYS_DYNAMIC;
+	bool obj1Dynamic = object1_->getPhysicsType() == PhysicsType::DYNAMIC;
+	bool obj2Dynamic = object2_->getPhysicsType() == PhysicsType::DYNAMIC;
 
 	obj1Pos_		= obj1Dynamic ? ((PhysicsObject*)object1_)->getTPosition() : object1_->getPosition();
 	obj2Pos_		= obj2Dynamic ? ((PhysicsObject*)object2_)->getTPosition() : object2_->getPosition();
@@ -32,7 +32,7 @@ void MPRCollision::init(){
 		Matrix rotation = i == 0 ? obj1Rotation_ : obj2Rotation_;
 
 		switch(obj->getHitboxType()){
-		case HITBOX_CUBE:
+		case HitboxType::CUBE:
 			// Use pre-defined cube vertices
 			for(auto j = cubeVerts_.begin(); j != cubeVerts_.end(); j++){
 
@@ -55,7 +55,7 @@ void MPRCollision::init(){
 
 
 			// TEMPORARY
-		case HITBOX_MESH:{
+		case HitboxType::MESH:{
 
 			// Get unique vertices
 			vector<float>& objVerts = obj->getModel()->vertices;
@@ -222,7 +222,7 @@ CVertex MPRCollision::getSupportPoint(){
 	return vertex;
 }
 
-Vec3 MPRCollision::getFurthestPoint(const bool& useObject1, const Vec3& direction){
+Vec3 MPRCollision::getFurthestPoint(bool useObject1, const Vec3& direction){
 
 	// Use transformed hitbox vertices if they exist
 	vector<Vec3>& verts = useObject1 ? object1Verts_ : object2Verts_;
@@ -285,7 +285,7 @@ Contact MPRCollision::getContact(){
 		CVertex v = getSupportPoint();
 
 		Contact c;
-		c.penetration = direction_;
+		c.normal = direction_;
 		c.obj1ContactGlobal = v.vObj1;
 		c.obj2ContactGlobal = v.vObj2;
 		setContactInfo(c);
@@ -384,7 +384,7 @@ Contact MPRCollision::getContact(){
 			*/
 
 			Contact c;
-			c.penetration = penetration;
+			c.normal = penetration.normalize();
 
 			// Multiply values with support points of each object to get contact points
 			c.obj1ContactGlobal	= u * face.v1.vObj1 + v * face.v2.vObj1 + w * face.v3.vObj1;
@@ -524,15 +524,15 @@ void MPRCollision::setContactInfo(Contact& c){
 	// Local contacts
 	c.obj1ContactLocal = obj1Rotation_.getTranspose() * c.obj1ContactVector;
 	c.obj2ContactLocal = obj2Rotation_.getTranspose() * c.obj2ContactVector;
+
+	// Penetration depth
+	c.penetrationDepth = (c.obj2ContactGlobal - c.obj1ContactGlobal)* c.normal;
 	
-
 	// Contact tangents
-	Vec3 normal = c.penetration.unitVector();
-
-	if(normal[0] >= 0.57735f)
-		c.tangent1 = Vec3(normal[1], -normal[0], 0);
+	if(c.normal[0] >= 0.57735f)
+		c.tangent1 = Vec3(c.normal[1], -c.normal[0], 0);
 	else
-		c.tangent1 = Vec3(0, normal[2], -normal[1]);
+		c.tangent1 = Vec3(0, c.normal[2], -c.normal[1]);
 
-	c.tangent2 = crossProduct(normal, c.tangent1);
+	c.tangent2 = crossProduct(c.normal, c.tangent1);
 }

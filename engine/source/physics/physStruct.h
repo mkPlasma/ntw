@@ -47,7 +47,7 @@ struct ObjectPair{
 
 
 struct Contact{
-	Vec3 penetration;
+	Vec3 normal;
 	Vec3 tangent1;
 	Vec3 tangent2;
 
@@ -60,16 +60,24 @@ struct Contact{
 	Vec3 obj1ContactVector;
 	Vec3 obj2ContactVector;
 
-
+	float penetrationDepth;
 	float closingSpeed;
 
 	float lambdaSum;
 	float lambdaSumTan1;
 	float lambdaSumTan2;
 
-	bool persistent;
+	// For sound
+	float lambdaAvg;
+	float lambdaAvgTan1;
+	float lambdaAvgTan2;
+	int numSolves;
 
-	Contact() : closingSpeed(0), lambdaSum(0), lambdaSumTan1(0), lambdaSumTan2(0), persistent(false) {}
+	bool valid;
+	bool isNew;
+
+	Contact() : penetrationDepth(0), closingSpeed(0), lambdaSum(0), lambdaSumTan1(0), lambdaSumTan2(0),
+		lambdaAvg(0), lambdaAvgTan1(0), lambdaAvgTan2(0), numSolves(0), valid(true), isNew(true) {}
 };
 
 

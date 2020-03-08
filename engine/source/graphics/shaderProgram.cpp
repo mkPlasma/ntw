@@ -1,9 +1,9 @@
 #include"shaderProgram.h"
 
-#include"paths.h"
+#include"core/paths.h"
+#include"core/error.h"
 #include<fstream>
 #include<vector>
-#include"core/error.h"
 
 using ntw::fatalError;
 
@@ -29,7 +29,7 @@ GLuint ShaderProgram::compileShader(const string& path, const GLenum& type){
 		fatalError("Failed to create shader object");
 
 	// Open file in shader directory
-	std::ifstream file(SHADER_PATH + path);
+	std::ifstream file(PATH_SHADER + path);
 
 	if(file.fail())
 		fatalError("Failed to open shader file: " + path);

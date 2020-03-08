@@ -1,15 +1,15 @@
 #pragma once
 
-enum PhysicsType{
-    PHYS_NONE,
-    PHYS_STATIC,
-    PHYS_SEMI_DYNAMIC,
-    PHYS_DYNAMIC
+enum class PhysicsType{
+    NONE,
+    STATIC,
+    SEMI_DYNAMIC,
+    DYNAMIC
 };
 
-enum HitboxType{
-    HITBOX_NONE,
-    HITBOX_CUBE,
-    HITBOX_SPHERE,
-    HITBOX_MESH
+enum class HitboxType{
+    NONE,
+    CUBE,
+    SPHERE,
+    MESH
 };

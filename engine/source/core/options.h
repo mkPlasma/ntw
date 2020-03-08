@@ -61,6 +61,8 @@ struct GraphicsOptions{
 
 	// Defaults
 	GraphicsOptions() :
+		resolutionX	(640),
+		resolutionY	(480),
 		fullscreen	(true),
 		useVSync	(true),
 		fov			(60)
@@ -68,7 +70,21 @@ struct GraphicsOptions{
 };
 
 
+struct SoundOptions{
+	float sfxVolume;
+	float musicVolume;
+
+
+	// Defaults
+	SoundOptions() :
+		sfxVolume	(1.0f),
+		musicVolume	(1.0f)
+	{}
+};
+
+
 struct Options{
 	ControlOptions control;
 	GraphicsOptions graphics;
+	SoundOptions sound;
 };

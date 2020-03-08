@@ -19,34 +19,34 @@ class Quaternion{
 
 public:
 	Quaternion();
-	Quaternion(const float& w, const float& x, const float& y, const float& z);
+	Quaternion(float w, float x, float y, float z);
 
 
 	friend Quaternion operator+(const Quaternion& a, const Quaternion& b);
 	friend Quaternion operator-(const Quaternion& a, const Quaternion& b);
 	friend Quaternion operator-(const Quaternion& a);
 	friend Quaternion operator*(const Quaternion& a, const Quaternion& b);
-	friend Quaternion operator*(const Quaternion& a, const float& b);
-	friend Quaternion operator/(const Quaternion& a, const float& b);
+	friend Quaternion operator*(const Quaternion& a, float b);
+	friend Quaternion operator/(const Quaternion& a, float b);
 	friend bool operator==(const Quaternion& a, const Quaternion& b);
 
 	Quaternion& operator+=(const Quaternion& a);
 	Quaternion& operator-=(const Quaternion& a);
 	Quaternion& operator*=(const Quaternion& a);
-	Quaternion& operator*=(const float& a);
-	Quaternion& operator/=(const float& a);
+	Quaternion& operator*=(float a);
+	Quaternion& operator/=(float a);
 
-	float operator[](const int& a) const;
+	float operator[](int a) const;
 
 
-	void setRotation(Vec3 axis, const float& ang);
-	void setRotation(const float& x, const float& y, const float& z, const float& ang);
+	void setRotation(Vec3 axis, float ang);
+	void setRotation(float x, float y, float z, float ang);
 	void setRotation(const Vec3& euler);
-	void setRotation(const float& x, const float& y, const float& z);
-	Quaternion& rotate(const Vec3& axis, const float& ang);
-	Quaternion& rotate(const float& x, const float& y, const float& z, const float& ang);
+	void setRotation(float x, float y, float z);
+	Quaternion& rotate(const Vec3& axis, float ang);
+	Quaternion& rotate(float x, float y, float z, float ang);
 	Quaternion& rotate(const Vec3& euler);
-	Quaternion& rotate(const float& x, const float& y, const float& z);
+	Quaternion& rotate(float x, float y, float z);
 
 
 	float magnitude() const;

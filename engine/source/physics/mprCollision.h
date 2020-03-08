@@ -90,7 +90,7 @@ class MPRCollision{
 
 	bool addSupportPoint();
 	CVertex getSupportPoint();
-	Vec3 getFurthestPoint(const bool& useObject1, const Vec3& direction);
+	Vec3 getFurthestPoint(bool useObject1, const Vec3& direction);
 
 	void addFace(const CVertex& v1, const CVertex& v2, const CVertex& v3);
 	void addEdge(const CVertex& v1, const CVertex& v2);

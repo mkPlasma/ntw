@@ -55,5 +55,5 @@ public:
 
 	void update();
 
-	vector<ContactManifold>& getCollisions();
+	vector<ContactManifold>& getContactManifolds();
 };

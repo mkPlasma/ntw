@@ -58,7 +58,7 @@ void Window::init(){
 	glfwSwapInterval(gOptions_.useVSync);
 }
 
-void Window::setMouseLock(const bool& lock){
+void Window::setMouseLock(bool lock){
 	mouseLocked_ = lock;
 	glfwSetInputMode(window_, GLFW_CURSOR, lock ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
@@ -68,11 +68,11 @@ void Window::centerMousePosition(){
 		glfwSetCursorPos(window_, centerX_, centerY_);
 }
 
-bool Window::isKeyDown(const int& key){
+bool Window::isKeyDown(int key){
 	return glfwGetKey(window_, key) == GLFW_PRESS;
 }
 
-bool Window::isMouseButtonDown(const int& button){
+bool Window::isMouseButtonDown(int button){
 	return glfwGetMouseButton(window_, button) == GLFW_PRESS;
 }
 

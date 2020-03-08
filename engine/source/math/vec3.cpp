@@ -7,7 +7,7 @@
 
 Vec3::Vec3() : x_(0), y_(0), z_(0) {}
 
-Vec3::Vec3(const float& x, const float& y, const float& z) : x_(x), y_(y), z_(z) {}
+Vec3::Vec3(float x, float y, float z) : x_(x), y_(y), z_(z) {}
 
 // Direction vector
 Vec3::Vec3(float yaw, float pitch){
@@ -30,7 +30,7 @@ Vec3 operator+(const Vec3& a, const Vec3& b){
 	);
 }
 
-Vec3 operator+(const Vec3& a, const float& b){
+Vec3 operator+(const Vec3& a, float b){
 	return Vec3(
 		a[0] + b,
 		a[1] + b,
@@ -46,7 +46,7 @@ Vec3 operator-(const Vec3& a, const Vec3& b){
 	);
 }
 
-Vec3 operator-(const Vec3& a, const float& b){
+Vec3 operator-(const Vec3& a, float b){
 	return Vec3(
 		a[0] - b,
 		a[1] - b,
@@ -54,7 +54,7 @@ Vec3 operator-(const Vec3& a, const float& b){
 	);
 }
 
-Vec3 operator-(const float& a, const Vec3& b){
+Vec3 operator-(float a, const Vec3& b){
 	return Vec3(
 		a - b[0],
 		a - b[1],
@@ -76,7 +76,7 @@ float operator*(const Vec3& a, const Vec3& b){
 			(a[2] * b[2]);
 }
 
-Vec3 operator*(const Vec3& a, const float& b){
+Vec3 operator*(const Vec3& a, float b){
 	return Vec3(
 		a[0] * b,
 		a[1] * b,
@@ -84,11 +84,11 @@ Vec3 operator*(const Vec3& a, const float& b){
 	);
 }
 
-Vec3 operator*(const float& a, const Vec3& b){
+Vec3 operator*(float a, const Vec3& b){
 	return b * a;
 }
 
-Vec3 operator/(const Vec3& a, const float& b){
+Vec3 operator/(const Vec3& a, float b){
 	return Vec3(
 		a[0] / b,
 		a[1] / b,
@@ -110,7 +110,7 @@ Vec3& Vec3::operator+=(const Vec3& a){
 	return *this = *this + a;
 }
 
-Vec3& Vec3::operator+=(const float& a){
+Vec3& Vec3::operator+=(float a){
 	return *this = *this + a;
 }
 
@@ -118,7 +118,7 @@ Vec3& Vec3::operator-=(const Vec3& a){
 	return *this = *this - a;
 }
 
-Vec3& Vec3::operator-=(const float& a){
+Vec3& Vec3::operator-=(float a){
 	return *this = *this - a;
 }
 
@@ -129,11 +129,11 @@ Vec3& Vec3::operator*=(const Vec3& a){
 	return *this;
 }
 
-Vec3& Vec3::operator*=(const float& a){
+Vec3& Vec3::operator*=(float a){
 	return *this = *this * a;
 }
 
-Vec3& Vec3::operator/=(const float& a){
+Vec3& Vec3::operator/=(float a){
 	return *this = *this / a;
 }
 
@@ -145,7 +145,7 @@ Vec3 ntw::crossProduct(const Vec3& a, const Vec3& b){
 	);
 }
 
-const float& Vec3::operator[](const int& a) const{
+float Vec3::operator[](int a) const{
 	switch(a){
 	case 0:	return x_;
 	case 1:	return y_;
@@ -177,6 +177,10 @@ bool Vec3::nonzero() const{
 	return x_ != 0 || y_ != 0 || z_ != 0;
 }
 
+bool Vec3::isNan() const{
+	return isnan(x_) || isnan(y_) || isnan(z_);
+}
+
 float Vec3::magnitude() const{
 	return sqrtf(magnitude2());
 }
@@ -193,22 +197,22 @@ Vec3& Vec3::normalize(){
 	return *this /= magnitude();
 }
 
-bool Vec3::equalsWithinThreshold(const Vec3& a, const float& threshold){
+bool Vec3::equalsWithinThreshold(const Vec3& a, float threshold){
 	return
 		abs(x_ - a[0]) <= threshold &&
 		abs(y_ - a[1]) <= threshold &&
 		abs(z_ - a[2]) <= threshold;
 }
 
-void Vec3::setX(const float& x){
+void Vec3::setX(float x){
 	x_ = x;
 }
 
-void Vec3::setY(const float& y){
+void Vec3::setY(float y){
 	y_ = y;
 }
 
-void Vec3::setZ(const float& z){
+void Vec3::setZ(float z){
 	z_ = z;
 }
 

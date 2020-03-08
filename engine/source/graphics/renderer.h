@@ -8,7 +8,7 @@
  */
 
 #include"core/options.h"
-#include"shaderProgram.h"
+#include"graphics/shaderProgram.h"
 #include"core/world.h"
 #include"math/matrix.h"
 #include<unordered_map>
@@ -16,21 +16,20 @@
 using std::unordered_map;
 
 
-struct ObjectBatch{
-
-	// Object data
-	int renderType;
-	vector<Object*> objects;
-
-	// VAO data
-	int vaoID;
-	int textureID;
-	int numVertices;
-	vector<unsigned int> bufferIDs;
-};
-
-
 class Renderer{
+	struct ObjectBatch{
+
+		// Object data
+		vector<Object*> objects;
+		RenderType renderType;
+		Material* material;
+
+		// VAO data
+		GLuint vaoID;
+		int numVertices;
+		vector<unsigned int> bufferIDs;
+	};
+
 
 	GraphicsOptions& gOptions_;
 
@@ -48,9 +47,6 @@ class Renderer{
 	// Current rendered world
 	World* world_;
 
-	// Map for textures and their IDs
-	unordered_map<Texture*, int> worldTextures_;
-
 	// World object batches
 	vector<ObjectBatch> objectBatches_;
 
@@ -63,5 +59,5 @@ public:
 	void initWorldRendering(World* world);
 	void cleanupWorldRendering();
 
-	void renderWorld(const int& time, const float& delta);
+	void renderWorld(int time, float delta);
 };

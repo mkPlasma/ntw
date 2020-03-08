@@ -35,5 +35,5 @@ public:
 
 	void start();
 
-	void render(const int& time, const float& delta);
+	void render(int time, float delta);
 };

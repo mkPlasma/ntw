@@ -6,6 +6,6 @@ namespace ntw{
 
 	#define PI 3.141593f
 
-	float toRadians(const float& a);
-	float toDegrees(const float& a);
+	float toRadians(float a);
+	float toDegrees(float a);
 }
