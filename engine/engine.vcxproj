@@ -99,13 +99,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\source;$(SolutionDir)\deps\glfw-3.3\include;$(SolutionDir)\deps\glad\include;$(SolutionDir)\deps\openal\include;$(SolutionDir)\deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)source;$(SolutionDir)deps\glfw-3.3\include;$(SolutionDir)deps\glad\include;$(SolutionDir)deps\openal\include;$(SolutionDir)deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;OpenAL32.lib;ogg.lib;vorbis.lib;vorbisenc.lib;vorbisfile.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)\deps\glfw-3.3\lib-vc2019;$(SolutionDir)\deps\openal\libs\Win64;$(SolutionDir)\deps\vorbis\libs\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)deps\glfw-3.3\lib-vc2019;$(SolutionDir)deps\openal\libs\Win64;$(SolutionDir)deps\vorbis\libs\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -135,7 +135,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\source;$(SolutionDir)\deps\glfw-3.3\include;$(SolutionDir)\deps\glad\include;$(SolutionDir)\deps\openal\include;$(SolutionDir)\deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)source;$(SolutionDir)deps\glfw-3.3\include;$(SolutionDir)deps\glad\include;$(SolutionDir)deps\openal\include;$(SolutionDir)deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -145,7 +145,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;OpenAL32.lib;ogg.lib;vorbis.lib;vorbisenc.lib;vorbisfile.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <AdditionalLibraryDirectories>$(SolutionDir)\deps\glfw-3.3\lib-vc2019;$(SolutionDir)\deps\openal\libs\Win64;$(SolutionDir)\deps\vorbis\libs\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)deps\glfw-3.3\lib-vc2019;$(SolutionDir)deps\openal\libs\Win64;$(SolutionDir)deps\vorbis\libs\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -97,8 +97,8 @@ void SoundEngine::addCollisionSounds(){
 		}
 
 		// If a contact was not found, exit
-		if(lambda == 0)
-			continue;
+		//if(lambda == 0)
+		//	continue;
 
 
 		// Set volume based on lambda
