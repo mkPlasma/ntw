@@ -31,7 +31,7 @@ public:
     Player(ControlOptions& cOptions, Window& window);
 
     void initPlayer();
-    void updatePlayer(bool updatePhysics);
+    void updatePlayer(float timeDelta);
 
     void updateLookVectors();
 

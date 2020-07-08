@@ -4,12 +4,13 @@ enum class PhysicsType{
     NONE,
     STATIC,
     SEMI_DYNAMIC,
-    DYNAMIC
+    DYNAMIC,
+    DYNAMIC_SIMPLE
 };
 
 enum class HitboxType{
     NONE,
-    CUBE,
-    SPHERE,
-    MESH
+    MESH,
+    PREDEFINED,
+    SPHERE
 };

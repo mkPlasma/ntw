@@ -7,6 +7,8 @@
  *
  */
 
+class Quaternion;
+
 #include"vec3.h"
 
 

@@ -1,5 +1,14 @@
 #pragma once
 
+/*
+ *	coreGame.h
+ *
+ *	Core game, handles world, rendering, and sound.
+ *
+ */
+
+class CoreGame;
+
 #include"window.h"
 #include"options.h"
 #include"resourceCache.h"
@@ -23,17 +32,12 @@ class CoreGame{
 
 	bool mouseLocked_;
 
-	bool noclip_;
-	bool noclipHeld_;
-
-	bool rendererRefreshed_;
-
 public:
 	CoreGame(Options& options, Window& window);
 
 	void init();
 
-	void update(int time, bool updatePhysics);
+	void update(int time, float timeDelta, bool updatePhysics);
 	void render(int time, float delta);
 
 	void finish();

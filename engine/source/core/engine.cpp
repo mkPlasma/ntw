@@ -5,12 +5,13 @@
 #include<chrono>
 #include<thread>
 #include<vector>
+#include<algorithm>
 
 #define currentTime std::chrono::high_resolution_clock::now()
 #define timeBetween(t1, t2) (int)std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()
 
 
-Engine::Engine() : window_(options_.graphics), game_(options_, window_) {
+Engine::Engine() : window_(options_), game_(options_, window_) {
 
 }
 
@@ -36,6 +37,7 @@ void Engine::gameLoop(){
 	bool firstUpdate = true;
 
 	auto startTime = currentTime;
+	auto lastUpdate = currentTime;
 	auto lastPhysicsUpdate = currentTime;
 
 	int lastSecond = 0;
@@ -49,17 +51,41 @@ void Engine::gameLoop(){
 		auto loopStartTime = currentTime;
 
 
-		// Check whether to update physics
-		bool updatePhysics = timeBetween(lastPhysicsUpdate, currentTime) >= PHYS_UPDATE_TIME_MICRO || firstUpdate;
+		// Get time delta and cap to minimum update rate
+		unsigned long long updateTime		= timeBetween(lastUpdate, currentTime);
+		unsigned long long physUpdateTime	= timeBetween(lastPhysicsUpdate, currentTime);
 
-		if(updatePhysics)
+		// Cap minimum update rate
+		if(updateTime > NTW_MIN_UPDATE_TIME_MICRO)
+			updateTime = NTW_MIN_UPDATE_TIME_MICRO;
+
+
+		float timeDelta		= updateTime		/ 1000000.0f;
+		float physTimeDelta = physUpdateTime	/ 1000000.0f;
+		
+		// Fix physics time delta if physics will be updated this frame
+		if(physTimeDelta > NTW_PHYS_TIME_DELTA)
+			physTimeDelta = 0;
+
+		// Update last update times
+		lastUpdate = currentTime;
+
+		// Check whether to update physics
+		bool fullPhysicsUpdate = physUpdateTime >= NTW_PHYS_UPDATE_TIME_MICRO || firstUpdate;
+
+		if(fullPhysicsUpdate)
 			lastPhysicsUpdate = currentTime;
 
+
+		// Get game time (ms)
+		int timeMillis = timeBetween(startTime, currentTime) / 1000;
+
 		// Update game
-		game_.update(timeBetween(startTime, currentTime) / 1000, updatePhysics);
-		
-		// Render, giving time in milliseconds
-		render(timeBetween(startTime, currentTime) / 1000, timeBetween(lastPhysicsUpdate, currentTime) / (float)PHYS_UPDATE_TIME_MICRO);
+		window_.updateKeys();
+		game_.update(timeMillis, timeDelta, fullPhysicsUpdate);
+
+		// Render
+		render(timeMillis, physTimeDelta);
 
 
 		// Print FPS
@@ -67,7 +93,7 @@ void Engine::gameLoop(){
 		frames++;
 
 		if(currentSecond > lastSecond){
-
+			
 			//system("cls");
 
 			std::cout << "FPS: " << frames << std::endl;
@@ -94,12 +120,12 @@ void Engine::gameLoop(){
 
 			auto beforeWaitTime = currentTime;
 
-			//std::this_thread::sleep_for(std::chrono::microseconds(UPDATE_TIME_MICRO - elapsed));
+			//std::this_thread::sleep_for(std::chrono::microseconds(NTW_UPDATE_TIME_MICRO - elapsed));
 
-			while(timeBetween(loopStartTime, currentTime) < UPDATE_TIME_MICRO)
+			while(timeBetween(loopStartTime, currentTime) < NTW_UPDATE_TIME_MICRO)
 				std::this_thread::sleep_for(std::chrono::microseconds(1));
 
-			int difference = timeBetween(beforeWaitTime, currentTime) - UPDATE_TIME_MICRO;
+			int difference = timeBetween(beforeWaitTime, currentTime) - NTW_UPDATE_TIME_MICRO;
 			//difference = difference < 0 ? -difference : difference;
 			waitDifferences.push_back(difference);
 		}
@@ -110,11 +136,11 @@ void Engine::gameLoop(){
 	finish();
 }
 
-void Engine::render(int time, float delta){
+void Engine::render(int time, float physTimeDelta){
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	game_.render(time, delta);
+	game_.render(time, physTimeDelta);
 
 	glfwSwapBuffers(winPtr_);
 	glfwPollEvents();

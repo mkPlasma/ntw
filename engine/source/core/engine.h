@@ -7,14 +7,20 @@
  *
  */
 
+class Engine;
+
 #include"options.h"
 #include"window.h"
 #include"coreGame.h"
 
 
-#define UPDATES_PER_SECOND 60
+// Fixed FPS update rate
+#define NTW_UPDATES_PER_SECOND		60
+#define NTW_UPDATE_TIME_MICRO		1000000/NTW_UPDATES_PER_SECOND
 
-#define UPDATE_TIME_MICRO       1000000/UPDATES_PER_SECOND
+// Minimum update rate, game will not update slower than this even if FPS is lower
+#define NTW_MIN_UPDATES_PER_SECOND	10
+#define NTW_MIN_UPDATE_TIME_MICRO	1000000/NTW_MIN_UPDATES_PER_SECOND
 
 
 class Engine{
@@ -35,5 +41,5 @@ public:
 
 	void start();
 
-	void render(int time, float delta);
+	void render(int time, float physTimeDelta);
 };

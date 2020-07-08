@@ -14,8 +14,15 @@ MPRCollision::MPRCollision(Object* object1, Object* object2) : object1_(object1)
 
 void MPRCollision::init(){
 
-	bool obj1Dynamic = object1_->getPhysicsType() == PhysicsType::DYNAMIC;
-	bool obj2Dynamic = object2_->getPhysicsType() == PhysicsType::DYNAMIC;
+	// Get transformed hitboxes
+	//object1Verts_ = object1_->getTransformedHitbox();
+	//object2Verts_ = object2_->getTransformedHitbox();
+	//auto object1Verts = object1_->getTransformedHitbox();
+	//auto object2Verts = object2_->getTransformedHitbox();
+
+	/*
+	bool obj1Dynamic = object1_->getPhysicsType() == PhysicsType::DYNAMIC || object1_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
+	bool obj2Dynamic = object2_->getPhysicsType() == PhysicsType::DYNAMIC || object2_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
 
 	obj1Pos_		= obj1Dynamic ? ((PhysicsObject*)object1_)->getTPosition() : object1_->getPosition();
 	obj2Pos_		= obj2Dynamic ? ((PhysicsObject*)object2_)->getTPosition() : object2_->getPosition();
@@ -32,7 +39,7 @@ void MPRCollision::init(){
 		Matrix rotation = i == 0 ? obj1Rotation_ : obj2Rotation_;
 
 		switch(obj->getHitboxType()){
-		case HitboxType::CUBE:
+		case HitboxType::MESH:
 			// Use pre-defined cube vertices
 			for(auto j = cubeVerts_.begin(); j != cubeVerts_.end(); j++){
 
@@ -55,7 +62,7 @@ void MPRCollision::init(){
 
 
 			// TEMPORARY
-		case HitboxType::MESH:{
+		case HitboxType::PREDEFINED:{
 
 			// Get unique vertices
 			vector<float>& objVerts = obj->getModel()->vertices;
@@ -90,6 +97,40 @@ void MPRCollision::init(){
 		}
 		}
 	}
+
+	bool equal1 = true;
+	bool equal2 = true;
+
+	for(Vec3& v : object1Verts_){
+		if(std::find(object1Verts.begin(), object1Verts.end(), v) == object1Verts.end()){
+			equal1 = false;
+			break;
+		}
+	}
+
+	for(Vec3& v : object2Verts_){
+		if(std::find(object2Verts.begin(), object2Verts.end(), v) == object2Verts.end()){
+			equal2 = false;
+			break;
+		}
+	}
+
+	object1Verts.clear();
+	object1Verts.push_back(object1Verts_[6]);
+	object1Verts.push_back(object1Verts_[7]);
+	object1Verts.push_back(object1Verts_[2]);
+	object1Verts.push_back(object1Verts_[3]);
+	object1Verts.push_back(object1Verts_[0]);
+	object1Verts.push_back(object1Verts_[1]);
+	object1Verts.push_back(object1Verts_[4]);
+	object1Verts.push_back(object1Verts_[5]);
+	*/
+
+	//object1Verts_ = object1Verts;
+	//object2Verts_ = object2Verts;
+	
+	object1Verts_ = object1_->getTransformedHitbox();
+	object2Verts_ = object2_->getTransformedHitbox();
 }
 
 bool MPRCollision::testCollision(){
@@ -224,35 +265,22 @@ CVertex MPRCollision::getSupportPoint(){
 
 Vec3 MPRCollision::getFurthestPoint(bool useObject1, const Vec3& direction){
 
-	// Use transformed hitbox vertices if they exist
 	vector<Vec3>& verts = useObject1 ? object1Verts_ : object2Verts_;
 
-	if(!verts.empty()){
-		Vec3 vertex =  verts[0];
+	Vec3 vertex =  verts[0];
+	float maxProduct = direction * vertex;
 
-		for(auto i = verts.begin(); i != verts.end(); i++)
-			if((*i - vertex) * direction > 0)
-				vertex = *i;
+	for(int i = 1; i < verts.size(); i++){
+		Vec3& v = verts[i];
+		float product = direction * v;
 
-		return vertex;
+		if(product > maxProduct){
+			vertex = v;
+			maxProduct = product;
+		}
 	}
 
-
-	// If no vertices were cached
-	Object*& obj = useObject1 ? object1_ : object2_;
-
-	Vec3 position = obj->getPosition();
-	Vec3 scale = obj->getScale();
-	Quaternion rotation = obj->getRotation();
-
-	Matrix transform;
-
-	/*
-	switch(obj->getHitboxType()){
-	}
-	*/
-
-	return Vec3();
+	return vertex;
 }
 
 
@@ -526,7 +554,7 @@ void MPRCollision::setContactInfo(Contact& c){
 	c.obj2ContactLocal = obj2Rotation_.getTranspose() * c.obj2ContactVector;
 
 	// Penetration depth
-	c.penetrationDepth = (c.obj2ContactGlobal - c.obj1ContactGlobal)* c.normal;
+	c.depth = (c.obj2ContactGlobal - c.obj1ContactGlobal) * c.normal;
 	
 	// Contact tangents
 	if(c.normal[0] >= 0.57735f)

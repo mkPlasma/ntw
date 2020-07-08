@@ -7,6 +7,8 @@
  *
  */
 
+class PhysicsEngine;
+
 #include"objects/object.h"
 #include"objects/physicsObject.h"
 #include"physStruct.h"
@@ -27,7 +29,7 @@ class PhysicsEngine{
 	vector<PhysicsObject*>& dynamicObjects_;
 
 	// Collisions
-	vector<Vec3> cubeVerts_;
+	//vector<Vec3> cubeVerts_;
 	vector<vector<CollisionInterval>> aabbCollisionIntervals_;
 	unordered_map<ObjectPair, int, ObjectPair> aabbCollisions_;
 
@@ -39,7 +41,7 @@ class PhysicsEngine{
 
 	void initAABBCollisions();
 
-	void checkCollisions();
+	void checkCollisions(float timeDelta, bool fullUpdate);
 
 	void updateAABBCollisionIntervals();
 	vector<float> getCollisionInterval(Object* obj);
@@ -53,7 +55,7 @@ public:
 
 	void init();
 
-	void update();
+	void update(float timeDelta, bool fullUpdate);
 
 	vector<ContactManifold>& getContactManifolds();
 };

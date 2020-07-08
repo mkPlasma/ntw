@@ -7,6 +7,8 @@
  *
  */
 
+class Constraint;
+
 #include"objects/physicsObject.h"
 #include"physics/physStruct.h"
 #include<vector>
@@ -55,7 +57,7 @@ public:
 	Constraint(Object* object1, Object* object2, bool constrainGreaterThanZero = false);
 
 	virtual void init();
-	virtual bool solve();
+	virtual void solve();
 
 	// Calculate constraint values
 	// Return true if constraint is satisfied
@@ -66,6 +68,9 @@ public:
 
 	// Apply corrective velocities
 	void apply();
+
+	// True if constraint is satisfied
+	virtual bool isSolved();
 
 	ObjectPair getObjects();
 };

@@ -2,7 +2,6 @@
 
 #include"core/paths.h"
 #include"file/binStream.h"
-#include<iostream>
 
 
 struct Texture{

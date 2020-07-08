@@ -1,7 +1,7 @@
 #include"window.h"
 
 
-Window::Window(GraphicsOptions& gOptions) : gOptions_(gOptions), window_(nullptr), mouseLocked_(false) {
+Window::Window(Options& options) : options_(options), window_(nullptr), mouseLocked_(false) {
 	
 }
 
@@ -12,8 +12,17 @@ Window::~Window(){
 
 void Window::init(){
 
-	centerX_ = gOptions_.resolutionX / 2;
-	centerY_ = gOptions_.resolutionY / 2;
+	centerX_ = options_.graphics.resolutionX / 2;
+	centerY_ = options_.graphics.resolutionY / 2;
+
+	int numKeys = NTW_KEYS_SIZE;
+
+#ifdef __NTW_DEBUG__
+	numKeys = NTW_KEYS_DEBUG_SIZE;
+#endif
+
+	for(int i = 0; i < numKeys; i++)
+		keys_[i] = false;
 
 	// Initialize GLFW and check success
 	if(!glfwInit())
@@ -32,17 +41,24 @@ void Window::init(){
 	if(glfwRawMouseMotionSupported())
 		glfwWindowHint(GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-
-	window_ = glfwCreateWindow(gOptions_.resolutionX, gOptions_.resolutionY, "NTW", NULL, NULL);
+	window_ = glfwCreateWindow(options_.graphics.resolutionX, options_.graphics.resolutionY, "NTW", NULL, NULL);
 
 	if(!window_){
 		glfwTerminate();
 		ntw::fatalError("Failed to create GLFW window");
 	}
 
-	// Center window
-	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	glfwSetWindowPos(window_, (mode->width - gOptions_.resolutionX) / 2, (mode->height - gOptions_.resolutionY) / 2);
+	// Primary monitor
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+	// Fullscreen
+	if(options_.graphics.fullscreen)
+		glfwSetWindowMonitor(window_, monitor, 0, 0, options_.graphics.resolutionX, options_.graphics.resolutionY, mode->refreshRate);
+
+	// Windowed mode, center window
+	else
+		glfwSetWindowPos(window_, (mode->width - options_.graphics.resolutionX) / 2, (mode->height - options_.graphics.resolutionY) / 2);
 
 
 	glfwMakeContextCurrent(window_);
@@ -52,10 +68,10 @@ void Window::init(){
 		ntw::fatalError("Failed to initialize GLAD");
 	}
 
-	glViewport(0, 0, gOptions_.resolutionX, gOptions_.resolutionY);
+	glViewport(0, 0, options_.graphics.resolutionX, options_.graphics.resolutionY);
 
 	// VSync
-	glfwSwapInterval(gOptions_.useVSync);
+	glfwSwapInterval(options_.graphics.useVSync);
 }
 
 void Window::setMouseLock(bool lock){
@@ -68,8 +84,30 @@ void Window::centerMousePosition(){
 		glfwSetCursorPos(window_, centerX_, centerY_);
 }
 
+void Window::updateKeys(){
+
+	int numKeys = NTW_KEYS_SIZE;
+
+#ifdef __NTW_DEBUG__
+	numKeys = NTW_KEYS_DEBUG_SIZE;
+#endif
+
+	// Update each key status in array
+	for(int i = 0; i < numKeys; i++){
+		bool prev = keys_[i];
+		keys_[i] = glfwGetKey(window_, options_.control.keys[i]) == GLFW_PRESS;
+
+		// key in keyPress array is true only when pressed initially
+		keyPress_[i] = !prev && keys_[i];
+	}
+}
+
 bool Window::isKeyDown(int key){
-	return glfwGetKey(window_, key) == GLFW_PRESS;
+	return keys_[key];
+}
+
+bool Window::isKeyPressed(int key){
+	return keyPress_[key];
 }
 
 bool Window::isMouseButtonDown(int button){

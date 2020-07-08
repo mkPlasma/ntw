@@ -1,9 +1,11 @@
 #include"object.h"
 
+#include"math/matrix.h"
+
 
 Object::Object(Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType) :
 	scale_(Vec3(1, 1, 1)), model_(model), material_(material), renderType_(renderType),
-	physicsType_(physicsType), hitboxType_(hitboxType), soundSource_(-1) {
+	physicsType_(physicsType), hitboxType_(hitboxType), hitboxCached_(false), soundSource_(-1) {
 
 }
 
@@ -12,13 +14,19 @@ Object::Object(Model* model, Material* material, RenderType renderType, HitboxTy
 	
 }
 
-void Object::update(){
+void Object::update(float timeDelta){
+
+	// Update sound source position
 	updateSoundSource();
+
+	// Reset hitbox cache for next frame
+	hitboxCached_ = false;
 }
 
 
 void Object::updateSoundSource(){
-	alSource3f(soundSource_, AL_POSITION, position_[0], position_[2], position_[1]);
+	if(hasSoundSource())
+		alSource3f(soundSource_, AL_POSITION, position_[0], position_[1], position_[2]);
 }
 
 void Object::playSound(ALuint soundID){
@@ -144,15 +152,23 @@ void Object::setMaterial(Material* material){
 }
 
 
-Vec3 Object::getPosition() const{
+const Vec3& Object::getPosition() const{
 	return position_;
 }
 
-Vec3 Object::getScale() const{
+const Vec3& Object::getScale() const{
 	return scale_;
 }
 
-Quaternion Object::getRotation() const{
+const Quaternion& Object::getRotation() const{
+	return rotation_;
+}
+
+const Vec3& Object::getTPosition() const{
+	return position_;
+}
+
+const Quaternion& Object::getTRotation() const{
 	return rotation_;
 }
 
@@ -174,6 +190,90 @@ PhysicsType Object::getPhysicsType() const{
 
 HitboxType Object::getHitboxType() const{
 	return hitboxType_;
+}
+
+const vector<Vec3>& Object::getTransformedHitbox(){
+
+	// If hitbox has not been calculated for this frame, do so
+	if(!hitboxCached_ && model_ != nullptr){
+
+		transformedHitbox_.clear();
+
+		Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
+
+		// For each vertex
+		for(int i = 0; i < model_->hitbox.size(); i++){
+			Vec3 v = model_->hitbox[i];
+
+			// Scale
+			v = v.multiplyElementWise(getScale());
+
+			// Rotate
+			v = rotation * v;
+
+			// Translate
+			v += getTPosition();
+
+			transformedHitbox_.push_back(v);
+		}
+
+		hitboxCached_ = true;
+	}
+
+	return transformedHitbox_;
+}
+
+const Hitbox& Object::getTransformedHitboxSAT(){
+
+	// TODO: don't cache hitbox again if position/rotation/scale have not changed since last cache
+
+	// Skip if hitbox has already been cached
+	if(hitboxCached_ || model_ == nullptr)
+		return transformedHitboxSAT_;
+
+	// Clear vertex and face data
+	transformedHitboxSAT_.vertices.clear();
+	transformedHitboxSAT_.faces.clear();
+
+	// Copy edge data
+	transformedHitboxSAT_.edges = model_->hitboxSAT.edges;
+
+	Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
+
+	// For each vertex
+	for(Vec3 v : model_->hitboxSAT.vertices){
+
+		// Scale
+		v = v.multiplyElementWise(getScale());
+
+		// Rotate
+		v = rotation * v;
+
+		// Translate
+		v += getTPosition();
+
+		transformedHitboxSAT_.vertices.push_back(v);
+	}
+
+	// For each face
+	for(SATFace f : model_->hitboxSAT.faces){
+
+		// Scale
+		f.position = f.position.multiplyElementWise(getScale());
+
+		// Rotate
+		f.position = rotation * f.position;
+		f.normal = rotation * f.normal;
+
+		// Translate
+		f.position += getTPosition();
+
+		transformedHitboxSAT_.faces.push_back(f);
+	}
+
+	hitboxCached_ = true;
+
+	return transformedHitboxSAT_;
 }
 
 ALuint Object::getSoundSource() const{

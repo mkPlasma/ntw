@@ -11,12 +11,14 @@ PhysicsEngine::PhysicsEngine(vector<Object*>& objects, vector<PhysicsObject*>& p
 	: objects_(objects), dynamicObjects_(physicsObjects) {
 
 	// Cube hitbox shape
+	/*
 	cubeVerts_ = {
 		Vec3(1, 1, 1),
 		Vec3(-1, 1, 1),
 		Vec3(1, -1, 1),
 		Vec3(1, 1, -1),
 	};
+	*/
 
 	// AABB collision interval lists
 	aabbCollisionIntervals_.push_back(vector<CollisionInterval>());
@@ -31,60 +33,76 @@ void PhysicsEngine::init(){
 	semiDynamicObjects_.clear();
 
 	for(auto i = objects_.begin(); i != objects_.end(); i++){
+
+		// Add to lists
 		if((*i)->getPhysicsType() == PhysicsType::STATIC)
 			staticObjects_.push_back(*i);
+
 		else if((*i)->getPhysicsType() == PhysicsType::SEMI_DYNAMIC)
 			semiDynamicObjects_.push_back(*i);
+
+		else if((*i)->getPhysicsType() == PhysicsType::DYNAMIC || (*i)->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE)
+			((PhysicsObject*)*i)->initPhysics();
 	}
 
 	initAABBCollisions();
 }
 
-void PhysicsEngine::update(){
+void PhysicsEngine::update(float timeDelta, bool fullUpdate){
 
 	// Apply initial updates
-	for(auto i = dynamicObjects_.begin(); i != dynamicObjects_.end(); i++){
+	for(PhysicsObject* obj : dynamicObjects_){
 
-		PhysicsObject* obj = *i;
+		bool dynamic = obj->getPhysicsType() == PhysicsType::DYNAMIC;
 
 		// Gravity
-		if(obj->useGravity())
-			obj->addVelocity(Vec3(0, 0, -0.3f));
+		if(obj->useGravity() && (!dynamic || (dynamic && fullUpdate)))
+			obj->addVelocity(Vec3(0, 0, -12 * (dynamic ? NTW_PHYS_TIME_DELTA : timeDelta)));
 
-		obj->tUpdatePhysics();
+		obj->tUpdatePhysics(timeDelta);
 	}
 
 	// Collision detection (in physicsEngineCollisions.cpp)
-	checkCollisions();
+	checkCollisions(timeDelta, fullUpdate);
 
 	// Solve constraints, repeating until all constraints are satisfied
-	int iter = 0;
+	if(fullUpdate){
+		int iter = 0;
 
-	do{
-		bool solved = true;
+		do{
+			// Solve and apply constraints
+			for(ContactConstraint& c : contactConstraints_){
+				c.solve();
+			}
 
-		// Solve and apply constraints
-		for(auto i = contactConstraints_.begin(); i != contactConstraints_.end(); i++)
-			solved &= (*i).solve();
+			for(Constraint& c : constraints_)
+				c.solve();
 
-		for(auto i = constraints_.begin(); i != constraints_.end(); i++)
-			solved &= (*i).solve();
+			iter++;
 
-		iter++;
+			// Check if all constraints are satisfied
+			for(ContactConstraint& c : contactConstraints_)
+				if(!c.isSolved())
+					goto constraintLoop;
 
-		if(solved)
-			break;
+			for(Constraint& c : constraints_)
+				if(!c.isSolved())
+					goto constraintLoop;
 
-		// Temp update all dynamic objects again
-		//for(auto i = dynamicObjects_.begin(); i != dynamicObjects_.end(); i++)
-		//	((PhysicsObject*)*i)->tUpdatePhysics();
+			// Solved, exit loop
+			goto constraintLoopExit;
 
-	} while(iter < PHYS_MAX_CONSTRAINT_ITER);
+		constraintLoop:;
+		} while(iter < PHYS_MAX_CONSTRAINT_ITER);
 
+	constraintLoopExit:;
+	}
 
 	// Update all objects
-	for(auto i = dynamicObjects_.begin(); i != dynamicObjects_.end(); i++)
-		(*i)->updatePhysics();
+	for(PhysicsObject* obj : dynamicObjects_){
+		if(obj->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE || (obj->getPhysicsType() == PhysicsType::DYNAMIC && fullUpdate))
+			obj->updatePhysics(timeDelta);
+	}
 }
 
 vector<ContactManifold>& PhysicsEngine::getContactManifolds(){

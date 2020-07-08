@@ -7,6 +7,8 @@
  *
  */
 
+class World;
+
 #include"physics/physicsEngine.h"
 #include"core/resourceCache.h"
 #include"graphics/camera.h"
@@ -43,7 +45,7 @@ public:
 	// Temporary test
 	void test();
 
-	void update(bool updatePhysics);
+	void update(float timeDelta, bool fullPhysicsUpdate);
 
 	void unload();
 

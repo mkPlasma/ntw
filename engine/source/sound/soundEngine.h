@@ -7,6 +7,8 @@
  *
  */
 
+class SoundEngine;
+
 #include"core/options.h"
 #include"math/vec3.h"
 #include"core/world.h"

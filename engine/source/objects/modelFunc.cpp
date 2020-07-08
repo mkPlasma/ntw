@@ -1,11 +1,247 @@
 #include"modelFunc.h"
 
 #include"math/mathFunc.h"
-#include<unordered_map>
+#include"core/error.h"
+#include<algorithm>
 
-using std::unordered_map;
 
 #define addVertex(v) vertices.push_back(v[0]); vertices.push_back(v[1]); vertices.push_back(v[2])
+
+
+void ntw::generateHitbox(Model* model){
+
+	// Vertices to generate hitbox from
+	// TODO: add case for predefined hitbox later
+	vector<float>& vertices = model->vertices;
+
+	// Keep track of triangles to merge coplanar faces
+	struct Triangle{
+		Vec3 v1;
+		Vec3 v2;
+		Vec3 v3;
+
+		bool isCoplanarWith(const Triangle& a){
+			const float threshold = 0.000001f;
+			Vec3 n = ntw::crossProduct(v2 - v1, v3 - v1);
+
+			return	abs(n * (v1 - a.v1)) < threshold &&
+				abs(n * (v1 - a.v2)) < threshold &&
+				abs(n * (v1 - a.v3)) < threshold;
+		}
+	};
+
+	vector<Triangle> tris;
+
+	// Merged faces
+	vector<vector<Vec3>> faces;
+
+	// For each triangle
+	for(size_t i = 0; i < vertices.size() / 9; i++){
+
+		// Create triangle
+		Triangle t{
+			Vec3(vertices[i * 9],		vertices[i * 9 + 1],	vertices[i * 9 + 2]),
+			Vec3(vertices[i * 9 + 3],	vertices[i * 9 + 4],	vertices[i * 9 + 5]),
+			Vec3(vertices[i * 9 + 6],	vertices[i * 9 + 7],	vertices[i * 9 + 8])
+		};
+
+		// Check if it is coplanar with previous triangles
+		for(int j = 0; j < tris.size(); j++){
+
+			// If coplanar, merge face vertices
+			if(t.isCoplanarWith(tris[j])){
+
+				// Face to merge with
+				vector<Vec3>& face = faces[j];
+
+				// Number of vertices in this triangle that are unique to the face
+				// Will be 1 for all valid cases
+				int numUnique = 0;
+
+				// Index of unique triangle vertex to add
+				int uniqueIndex = -1;
+
+				// Check uniqueness
+				if(std::find(face.begin(), face.end(), t.v1) == face.end()){ numUnique++;	uniqueIndex = 1; }
+				if(std::find(face.begin(), face.end(), t.v2) == face.end()){ numUnique++;	uniqueIndex = 2; }
+				if(std::find(face.begin(), face.end(), t.v3) == face.end()){ numUnique++;	uniqueIndex = 3; }
+
+				// Error check
+				if(numUnique != 1)
+					ntw::fatalError("Hitbox model has detached coplanar faces!");
+
+				// Non-unique vertices
+				const Vec3& v1 = uniqueIndex == 1 ? t.v3 : uniqueIndex == 2 ? t.v1 : t.v2;
+				const Vec3& v2 = uniqueIndex == 1 ? t.v2 : uniqueIndex == 2 ? t.v3 : t.v1;
+
+				// Unique vertex
+				const Vec3& u = uniqueIndex == 1 ? t.v1 : uniqueIndex == 2 ? t.v2 : t.v3;
+
+
+				// Find indices of non-unique vertices, unique vertex will be inserted between them
+				auto v1index = std::find(face.begin(), face.end(), v1);
+				auto v2index = std::find(face.begin(), face.end(), v2);
+
+				// Index is first in vector
+				if(v1index == face.begin()){
+					if(v2index == v1index + 1)			face.insert(v2index, u);
+					else if(v2index == face.end() - 1)	face.insert(face.end(), u);
+				}
+				// Index is last in vector
+				else if(v1index == face.end() - 1){
+					if(v2index == v1index - 1)			face.insert(v1index, u);
+					else if(v2index == face.begin())	face.insert(face.begin(), u);
+				}
+				// Index is in between
+				else{
+					if(v2index == v1index + 1)			face.insert(v2index, u);
+					else if(v2index == v1index - 1)		face.insert(v1index, u);
+				}
+
+				
+				/*
+				// Add triangle vertices to face if they are unique
+				for(int k = 0; k < 3; k++){
+					Vec3& v = k == 0 ? t.v1 : k == 1 ? t.v2 : t.v3;
+
+					// If not unique, go to next vertex
+					for(Vec3& v2 : face)
+						if(v.equalsWithinThreshold(v2, 0.0001f))
+							goto vertexLoop;
+
+					// If unique, add to face
+					face.push_back(v);
+
+				vertexLoop:;
+				}
+				*/
+
+				// Merge done, move to next triangle
+				goto triLoop;
+			}
+		}
+
+		// Not coplanar, add triangle and face
+		tris.push_back(t);
+		faces.push_back({t.v1, t.v2, t.v3});
+
+	triLoop:;
+	}
+
+
+	// Create hitbox data
+	for(const vector<Vec3>& face : faces){
+
+		// Ignore faces with less than 3 vertices
+		int numVerts = (int)face.size();
+
+		if(numVerts < 3)
+			continue;
+
+
+		// Average vertex positions for face position
+		Vec3 facePosition;
+
+		// Add all unique vertices
+		for(int i = 0; i < numVerts; i++)
+			if(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[i]) == model->hitboxSAT.vertices.end())
+				model->hitboxSAT.vertices.push_back(face[i]);
+
+
+		// Add half-edges
+		for(int i = 0; i < numVerts; i++){
+
+			// Add vertex position to average
+			facePosition += face[i];
+
+			// Get second edge vertex
+			int j = i + 1;
+			j = j >= numVerts ? 0 : j;
+
+			// Get vertex indices
+			int v1 = (int)(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[i]) - model->hitboxSAT.vertices.begin());
+			int v2 = (int)(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[j]) - model->hitboxSAT.vertices.begin());
+
+			// Create half-edge, setting main face to current face
+			SATHalfEdge e = {v1, v2, (int)model->hitboxSAT.faces.size(), -1};
+
+
+			// If an opposing half-edge already exists, don't add this one
+			for(int k = 0; k < model->hitboxSAT.edges.size(); k++){
+
+				const SATHalfEdge& e2 = model->hitboxSAT.edges[k];
+
+				if((e.v1 == e2.v1 && e.v2 == e2.v2) || (e.v1 == e2.v2 && e.v2 == e2.v1)){
+
+					// Add existing edge index to face
+					goto edgeLoop;
+				}
+			}
+
+
+			// Find secondary face
+			for(int k = 0; k < faces.size(); k++){
+
+				const vector<Vec3>& f = faces[k];
+
+				// Skip current face
+				if(f == face)
+					continue;
+
+				const float threshold = 0.00001f;
+
+				// If both vertices are present, then set this as the secondary face
+				for(const Vec3& v1 : f){
+					if(face[i].equalsWithinThreshold(v1, threshold)){
+						for(const Vec3& v2 : f){
+							if(face[j].equalsWithinThreshold(v2, threshold)){
+								e.f2 = k;
+								goto loopExit;
+							}
+						}
+						break;
+					}
+				}
+			}
+		loopExit:;
+			
+			// No secondary face found
+			if(e.f2 == -1)
+				ntw::warning("Hitbox edge has no secondary face, is there a one-sided face or gap in the model?");
+
+			// Add half-edge
+			model->hitboxSAT.edges.push_back(e);
+			
+		edgeLoop:;
+		}
+		
+		// Create face
+		SATFace satFace;
+		satFace.position = {facePosition / (float)numVerts,};
+		satFace.normal = crossProduct(face[0] - face[1], face[0] - face[2]).normalize();
+
+		// Check that normal is facing outwards
+		if(satFace.normal * satFace.position < 0)
+			satFace.normal = -satFace.normal;
+
+
+		// Add face
+		model->hitboxSAT.faces.push_back(satFace);
+	}
+
+	// Add edge indices to each face
+	for(int i = 0; i < model->hitboxSAT.edges.size(); i++){
+		int f1 = model->hitboxSAT.edges[i].f1;
+		int f2 = model->hitboxSAT.edges[i].f2;
+		
+		if(f1 != -1)	model->hitboxSAT.faces[f1].edges.push_back(i);
+		if(f2 != -1)	model->hitboxSAT.faces[f2].edges.push_back(i);
+	}
+}
+
+void ntw::setModelProperties(Model* model){
+	ntw::generateHitbox(model);
+}
 
 
 Model ntw::getPlane(){

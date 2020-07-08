@@ -7,6 +7,8 @@
  *	
  */
 
+class Renderer;
+
 #include"core/options.h"
 #include"graphics/shaderProgram.h"
 #include"core/world.h"
@@ -59,5 +61,5 @@ public:
 	void initWorldRendering(World* world);
 	void cleanupWorldRendering();
 
-	void renderWorld(int time, float delta);
+	void renderWorld(int time, float physTimeDelta);
 };

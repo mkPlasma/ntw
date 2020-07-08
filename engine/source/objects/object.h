@@ -7,12 +7,15 @@
  *
  */
 
+class Object;
+
 #include"math/vec3.h"
 #include"math/quaternion.h"
-#include"graphics/model.h"
+#include"objects/model.h"
 #include"objects/material.h"
 #include"graphics/renderType.h"
 #include"physics/physEnum.h"
+#include"physics/physStruct.h"
 #include<al.h>
 
 
@@ -29,13 +32,19 @@ protected:
 	PhysicsType physicsType_;
 	HitboxType hitboxType_;
 
+	vector<Vec3> transformedHitbox_;
+	Hitbox transformedHitboxSAT_;
+	bool hitboxCached_;
+
+	vector<ContactInfo> contacts_;
+
 	ALuint soundSource_;
 
 public:
 	Object(Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType);
 	Object(Model* model, Material* material, RenderType renderType, HitboxType hitboxType = HitboxType::NONE);
 
-	virtual void update();
+	virtual void update(float timeDelta);
 
 	void updateSoundSource();
 	void playSound(ALuint soundID);
@@ -71,9 +80,11 @@ public:
 	void setMaterial(Material* material);
 
 
-	Vec3 getPosition() const;
-	Vec3 getScale() const;
-	Quaternion getRotation() const;
+	const Vec3& getPosition() const;
+	const Vec3& getScale() const;
+	const Quaternion& getRotation() const;
+	virtual const Vec3& getTPosition() const;
+	virtual const Quaternion& getTRotation() const;
 
 	Model* getModel() const;
 	Material* getMaterial() const;
@@ -81,6 +92,9 @@ public:
 	RenderType getRenderType() const;
 	PhysicsType getPhysicsType() const;
 	HitboxType getHitboxType() const;
+
+	const vector<Vec3>& getTransformedHitbox();
+	const Hitbox& getTransformedHitboxSAT();
 
 	ALuint getSoundSource() const;
 	bool hasSoundSource() const;

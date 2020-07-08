@@ -10,11 +10,13 @@
  *	
  */
 
+class ShaderProgram;
+
 #include<glad/glad.h>
 #include<string>
 
-
 using std::string;
+
 
 class ShaderProgram{
 

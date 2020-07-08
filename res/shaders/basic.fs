@@ -18,7 +18,6 @@ const float specularAmt = 0.5;
 
 const float gamma = 2.2;
 
-
 void main(){
 	
 	vec3 normal = normalize(fNormal);

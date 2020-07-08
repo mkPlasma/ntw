@@ -6,6 +6,13 @@
 
 namespace ntw{
 
+	// Generate model hitbox from vertices
+	void generateHitbox(Model* model);
+
+	// Generate model properties (hitbox, etc.)
+	void setModelProperties(Model* model);
+
+
 	// Creates a model with texture coordinates
 	Model getPlane();
 	Model getCube(bool smoothNormals = false);

@@ -155,18 +155,44 @@ float Vec3::operator[](int a) const{
 	throw std::runtime_error("Vector index out of bounds: " + std::to_string(a));
 }
 
+float& Vec3::operator[](int a){
+	switch(a){
+	case 0:	return x_;
+	case 1:	return y_;
+	case 2:	return z_;
+	}
+
+	throw std::runtime_error("Vector index out of bounds: " + std::to_string(a));
+}
+
 
 Vec3 Vec3::multiplyElementWise(const Vec3& a){
 	Vec3 b = *this;
 	return b *= a;
 }
 
-Vec3 Vec3::compOn(const Vec3& a) const{
-	return *this * (*this * a / a.magnitude());
+float Vec3::compOn(const Vec3& a) const{
+	return (*this * a / a.magnitude());
 }
 
 Vec3 Vec3::projOn(const Vec3& a) const{
-	return *this * (*this * a / a.magnitude2());
+	return a * (*this * a / a.magnitude2());
+}
+
+Vec3 Vec3::clampedProjOn(const Vec3& a) const{
+
+	// Standard projection
+	Vec3 proj = projOn(a);
+
+	// Clamp components to zero if the two vectors are in opposite directions
+	Vec3 comp = *this;
+	comp *= a;
+
+	if(comp[0] < 0)	proj[0] = 0;
+	if(comp[1] < 0)	proj[1] = 0;
+	if(comp[2] < 0)	proj[2] = 0;
+
+	return proj;
 }
 
 bool Vec3::isZero() const{
@@ -190,14 +216,15 @@ float Vec3::magnitude2() const{
 }
 
 Vec3 Vec3::unitVector() const{
-	return *this / magnitude();
+	float mag = magnitude();
+	return mag == 0 ? *this : *this / mag;
 }
 
 Vec3& Vec3::normalize(){
-	return *this /= magnitude();
+	return *this = unitVector();
 }
 
-bool Vec3::equalsWithinThreshold(const Vec3& a, float threshold){
+bool Vec3::equalsWithinThreshold(const Vec3& a, float threshold) const{
 	return
 		abs(x_ - a[0]) <= threshold &&
 		abs(y_ - a[1]) <= threshold &&

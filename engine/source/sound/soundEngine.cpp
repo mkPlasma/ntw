@@ -102,10 +102,7 @@ void SoundEngine::addCollisionSounds(){
 
 
 		// Set volume based on lambda
-		float volume = min(lambda / 5, 1.0f);
-		volume *= volume;
-
-		volume = 0.2f;
+		float volume = min((lambda * lambda) / 2, 1.0f);
 
 		// Don't play sound if it's too quiet
 		if(volume <= 0.01f)
@@ -118,7 +115,7 @@ void SoundEngine::addCollisionSounds(){
 
 		// Set position to halfway between contact points
 		Vec3 pos = (contact.obj1ContactGlobal + contact.obj2ContactGlobal) / 2;
-		alSource3f(source, AL_POSITION, pos[0], pos[2], pos[1]);
+		alSource3f(source, AL_POSITION, pos[0], pos[1], pos[2]);
 
 		alSourcef(source, AL_GAIN, volume);
 
@@ -131,10 +128,10 @@ void SoundEngine::addCollisionSounds(){
 
 
 void SoundEngine::setListenerPosition(const Vec3& position){
-	alListener3f(AL_POSITION, position[0], position[2], position[1]);
+	alListener3f(AL_POSITION, position[0], position[1], position[2]);
 }
 
 void SoundEngine::setListenerOrientation(const Vec3& at, const Vec3& up){
-	ALfloat orientation[] = {-at[0], at[2], at[1], -up[0], up[2], up[1]};
+	ALfloat orientation[] = {at[0], at[1], at[2], up[0], up[1], up[2]};
 	alListenerfv(AL_ORIENTATION, orientation);
 }

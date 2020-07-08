@@ -7,6 +7,8 @@
  *
  */
 
+class ContactConstraint;
+
 #include"constraint.h"
 
 
@@ -26,10 +28,12 @@ public:
 	ContactConstraint(Contact& contact, ObjectPair& objects);
 
 	void init() override;
-	bool solve() override;
+	void solve() override;
+
+	bool isSolved() override;
 
 	// Necessary for some reason
 	ContactConstraint& operator=(const ContactConstraint& a);
 
-	Contact& getContact() const;
+	Contact& getContactPoints() const;
 };

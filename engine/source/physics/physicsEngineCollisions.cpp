@@ -1,6 +1,7 @@
 #include"physicsEngine.h"
 
 #include"physics/mprCollision.h"
+#include"physics/satCollision.h"
 #include"physics/physDefine.h"
 #include"math/mathFunc.h"
 #include"core/error.h"
@@ -16,7 +17,7 @@ void PhysicsEngine::initAABBCollisions(){
 
 	// Generate AABB interval lists
 	for(auto i = objects_.begin(); i != objects_.end(); i++){
-		if((*i)->getPhysicsType() != PhysicsType::NONE){
+		if((*i)->getPhysicsType() != PhysicsType::NONE/* && (*i)->getModel()->hitbox != nullptr*/){
 
 			// Add intervals
 			vector<float> positions = getCollisionInterval(*i);
@@ -49,7 +50,8 @@ void PhysicsEngine::initAABBCollisions(){
 				for(auto k = active.begin(); k != active.end() - 1; k++){
 
 					// Only need to process collisions with dynamic objects
-					if((*j).object->getPhysicsType() != PhysicsType::DYNAMIC && (*k)->object->getPhysicsType() != PhysicsType::DYNAMIC)
+					if((*j).object->getPhysicsType() != PhysicsType::DYNAMIC && (*j).object->getPhysicsType() != PhysicsType::DYNAMIC_SIMPLE &&
+						(*k)->object->getPhysicsType() != PhysicsType::DYNAMIC && (*k)->object->getPhysicsType() != PhysicsType::DYNAMIC_SIMPLE)
 						continue;
 
 					ObjectPair collision = ObjectPair{(*j).object, (*k)->object};
@@ -80,10 +82,184 @@ void PhysicsEngine::initAABBCollisions(){
 	}
 }
 
-void PhysicsEngine::checkCollisions(){
+#include<iostream>
+using std::cout;
+using std::endl;
+
+void PhysicsEngine::checkCollisions(float timeDelta, bool fullUpdate){
 
 	// Do broad-phase check with AABBs
 	updateAABBCollisionIntervals();
+
+	// Clear contacts and contact constraints from previous update
+	contactManifolds_.clear();
+	contactConstraints_.clear();
+
+
+	// For each colliding pair of AABBs
+	for(auto i = aabbCollisions_.begin(); i != aabbCollisions_.end(); i++){
+
+		// Ignore pairs that did not collide on all 3 axes
+		if(i->second < 3)
+			continue;
+
+
+		Object* object1 = i->first.object1;
+		Object* object2 = i->first.object2;
+
+
+		bool obj1Simple = object1->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
+		bool obj2Simple = object2->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
+
+		// Only check collisions for simple objects on non-full updates
+		if(!fullUpdate && !obj1Simple && !obj2Simple)
+			continue;
+
+
+		// Create collision tester
+		SATCollision collisionTest(object1, object2);
+		
+		// No collision, continue
+		if(!collisionTest.testCollision())
+			continue;
+
+
+		// If there is a collision, push back the objects
+		ContactManifold m = collisionTest.getContactPoints();
+
+		// Check output valididty
+		if(m.contacts.empty())
+			continue;
+
+		// Add manifold
+		contactManifolds_.push_back(m);
+
+		// If either object uses full rigid body physics, add contact constraints
+		if(object1->getPhysicsType() == PhysicsType::DYNAMIC || object2->getPhysicsType() == PhysicsType::DYNAMIC)
+			for(Contact& c : contactManifolds_[contactManifolds_.size() - 1].contacts)
+				contactConstraints_.push_back(ContactConstraint(c, m.objects));
+
+
+		// Further collision resolution for objects with simple physics
+		if(!obj1Simple && !obj2Simple)
+			continue;
+
+		// Resolve collision based on normal of first contact
+		const Vec3& normal = m.contacts[0].normal;
+
+		float distance = m.maxDistance;
+		float distMult = 0;
+
+		// Distance is maximum penetration depth
+		for(const Contact& c : m.contacts)
+			if(c.depth > distance)
+				distance = c.depth;
+
+		// Amount to push back based on mass
+		if(object1->getPhysicsType() != PhysicsType::NONE && object1->getPhysicsType() != PhysicsType::STATIC){
+			if(object2->getPhysicsType() != PhysicsType::NONE && object2->getPhysicsType() != PhysicsType::STATIC){
+				float obj1Mass = ((PhysicsObject*)object1)->getMass();
+				float obj2Mass = ((PhysicsObject*)object2)->getMass();
+				distMult = obj2Mass / (obj1Mass + obj2Mass);
+			}
+			else
+				distMult = 1;
+		}
+
+		bool obj1Phys = obj1Simple || object1->getPhysicsType() == PhysicsType::DYNAMIC;
+		bool obj2Phys = obj2Simple || object2->getPhysicsType() == PhysicsType::DYNAMIC;
+
+		// Zero object velocity and push outwards along penetration normal
+		if(obj1Phys && distMult > 0){
+			float dist = distance * distMult;
+			const Vec3& vel = ((PhysicsObject*)object1)->getVelocity();
+			
+			// Get projected velocity
+			Vec3 proj = vel.clampedProjOn(-normal);
+
+			// Set on ground if angle is > 45 degrees
+			if(normal * Vec3(0, 0, 1) >= 0.707){
+				((PhysicsObject*)object1)->setOnGround(true);
+
+				// Remove horizontal components from velocity adjustment
+				proj[0] = 0;
+				proj[1] = 0;
+			}
+
+			// Zero velocity
+			((PhysicsObject*)object1)->setVelocity(vel - proj);
+
+			// Push back based on projected velocity and penetration distance
+			object1->setPosition(object1->getPosition() - (dist * -normal) + (proj * timeDelta));
+		}
+		if(obj2Phys && (1 - distMult) > 0){
+			float dist = distance * (1 - distMult);
+			const Vec3& vel = ((PhysicsObject*)object2)->getVelocity();
+
+			// Get projected velocity
+			Vec3 proj = vel.clampedProjOn(normal);
+
+			// Set on ground if angle is > 45 degrees
+			if(-normal * Vec3(0, 0, 1) >= 0.707){
+				((PhysicsObject*)object2)->setOnGround(true);
+
+				// Remove horizontal components from velocity adjustment
+				proj[0] = 0;
+				proj[1] = 0;
+			}
+
+			// Zero velocity
+			((PhysicsObject*)object2)->setVelocity(vel - proj);
+
+			// Push back based on projected velocity and penetration distance
+			object2->setPosition(object2->getPosition() - (dist * normal) + (proj * timeDelta));
+		}
+
+		/*
+		// If a collision occurred, 'binary search' velocities until the objects are as close as possible to not colliding
+		int iter = 0;
+		float velMult = 0.5;
+		float velAdd = 0.25;
+
+		// Adjust velocities and t-update
+		Vec3 obj1Velocity = obj1Simple ? ((PhysicsObject*)i->first.object1)->getVelocity() : Vec3();
+		Vec3 obj2Velocity = obj2Simple ? ((PhysicsObject*)i->first.object2)->getVelocity() : Vec3();
+
+		//cout << c.normal[0] << "\t" << c.normal[1] << "\t" << c.normal[2] << endl;
+
+		//if(obj1Simple)	i->first.object1->setPosition(i->first.object1->getTPosition() - (c.normal * c.depth));
+		//if(obj2Simple)	i->first.object2->setPosition(i->first.object2->getTPosition() + (c.normal * c.depth));
+
+		while(iter < 0){
+
+			// Adjust velocities and t-update
+			if(obj1Simple){
+				((PhysicsObject*)i->first.object1)->setVelocity(obj1Velocity * velMult);
+				((PhysicsObject*)i->first.object1)->tUpdatePhysics(timeDelta);
+			}
+
+			if(obj2Simple){
+				((PhysicsObject*)i->first.object2)->setVelocity(obj2Velocity * velMult);
+				((PhysicsObject*)i->first.object2)->tUpdatePhysics(timeDelta);
+			}
+
+			// If still colliding, decrease velocities
+			if(SATCollision(i->first.object1, i->first.object2).testCollision())
+				velMult -= velAdd;
+
+			// If not colliding, increase velocities
+			else
+				velMult += velAdd;
+
+			velAdd /= 2;
+			iter++;
+		}
+		*/
+	}
+
+	// OBSOLETE RIGID BODY PHYSICS WITH MPA COLLISION
+	// NEW CODE USES SAT COLLISION
+	/*
 
 	// Keep track of colliding pairs
 	vector<ObjectPair> colliding;
@@ -119,6 +295,7 @@ void PhysicsEngine::checkCollisions(){
 					ContactManifold& m = *j;
 
 					// Check validity of existing contacts
+					/*
 					if(!m.checked){
 						for(int k = 0; k < m.contacts.size(); k++){
 							if(!checkContactValidity(m.objects, m.contacts[k])){
@@ -132,6 +309,8 @@ void PhysicsEngine::checkCollisions(){
 
 						m.checked = true;
 					}
+					//*
+					m.contacts.clear();
 
 					// Check if the contact is close enough to an existing one
 					for(auto k = m.contacts.begin(); k != m.contacts.end(); k++){
@@ -183,12 +362,11 @@ void PhysicsEngine::checkCollisions(){
 
 					// Finished, continue to next AABB collision
 					goto aabbLoop;
-					*/
+					//*
 				}
 			}
 
 			// If no manifold was found, create new contact object
-			contact.valid = true;
 			ContactManifold m;
 			m.objects = i->first;
 			m.contacts = {contact};
@@ -249,6 +427,7 @@ void PhysicsEngine::checkCollisions(){
 			contactConstraints_.push_back(ContactConstraint(c, m.objects));
 		}
 	}
+	*/
 }
 
 void PhysicsEngine::updateAABBCollisionIntervals(){
@@ -259,10 +438,15 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 		if((*obj)->getPhysicsType() == PhysicsType::NONE || (*obj)->getPhysicsType() == PhysicsType::STATIC)
 			continue;
 
+		// If the object has not moved, it does not need to be updated
+		if(((PhysicsObject*)*obj)->getVelocity().isZero() && ((PhysicsObject*)*obj)->getAngularVelocity().isZero())
+			continue;
+
 		// Get new interval
 		vector<float> positions = getCollisionInterval(*obj);
 
 		// Find intervals corresponding to this object
+		// NOTE: could be optimized by storing the interval in the object, removing the need to search for it
 		for(int i = 0; i < 3; i++){
 
 			// Count intervals updated
@@ -308,13 +492,14 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 				intervals[k - 1] = tmp;
 
 				// If a swap was performed, update collisions list
-				CollisionInterval first = intervals[k - 1];
-				CollisionInterval second = intervals[k];
+				CollisionInterval& first = intervals[k - 1];
+				CollisionInterval& second = intervals[k];
 
 				// If both are the same type, no change is performed
 				// Only need to process collisions with dynamic objects
 				if((first.start ^ second.start) &&
-					(first.object->getPhysicsType() == PhysicsType::DYNAMIC || second.object->getPhysicsType() == PhysicsType::DYNAMIC)){
+					(first.object->getPhysicsType() == PhysicsType::DYNAMIC || first.object->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE ||
+					second.object->getPhysicsType() == PhysicsType::DYNAMIC	|| second.object->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE)){
 
 					ObjectPair collision = ObjectPair{first.object, second.object};
 
@@ -340,21 +525,43 @@ void PhysicsEngine::updateAABBCollisionIntervals(){
 			}
 		}
 	}
+
+	/*
+	for(int i = 0; i < 3; i++){
+		vector<CollisionInterval>& intervals = aabbCollisionIntervals_[i];
+
+		for(CollisionInterval& i : intervals)
+			cout << i.position << "\t";
+
+		cout << endl;
+	}
+
+	cout << endl;
+	*/
 }
 
 vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 
-	Vec3 position = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTPosition() : obj->getPosition();
-	Vec3 scale = obj->getScale();
-	Quaternion rotation = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTRotation() : obj->getRotation();
-	Matrix transform = Matrix(3, 3, true);
+	//Vec3 position = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTPosition() : obj->getPosition();
+	//Vec3 scale = obj->getScale();
+	//Quaternion rotation = obj->getPhysicsType() == PhysicsType::DYNAMIC ? ((PhysicsObject*)obj)->getTRotation() : obj->getRotation();
+	//Matrix transform = Matrix(3, 3, true);
 
 	float x1, x2, y1, y2, z1, z2;
 	x1 = y1 = z1 = std::numeric_limits<float>::max();
 	x2 = y2 = z2 = -x1;
 
+	const Hitbox& hitbox = obj->getTransformedHitboxSAT();
+
+	for(const Vec3& v : hitbox.vertices){
+		x1 = min(x1, v[0]);	x2 = max(x2, v[0]);
+		y1 = min(y1, v[1]);	y2 = max(y2, v[1]);
+		z1 = min(z1, v[2]);	z2 = max(z2, v[2]);
+	}
+
+	/*
 	switch(obj->getHitboxType()){
-	case HitboxType::CUBE:
+	case HitboxType::MESH:
 		transform.rotate(rotation);
 
 		// Use pre-defined half-cube vertices for hitbox
@@ -389,7 +596,7 @@ vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 
 
 		// TEMPORARY
-	case HitboxType::MESH:{
+	case HitboxType::PREDEFINED:{
 		transform.rotate(rotation);
 
 		// Get unique vertices
@@ -430,6 +637,7 @@ vector<float> PhysicsEngine::getCollisionInterval(Object* obj){
 	}
 
 	}
+	*/
 
 	return vector<float>{x1, x2, y1, y2, z1, z2};
 }
@@ -490,7 +698,7 @@ void PhysicsEngine::findOptimalContacts(ContactManifold& m){
 	Contact* first = &m.contacts[0];
 	float dist = 0;
 	for(auto i = m.contacts.begin(); i != m.contacts.end(); i++){
-		float curDist = (*i).penetrationDepth;
+		float curDist = (*i).depth;
 
 		if(curDist > dist){
 			first = &*i;

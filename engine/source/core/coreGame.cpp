@@ -9,11 +9,6 @@ CoreGame::CoreGame(Options& options, Window& window) :
 	world_(options, resCache_, soundEngine_, window) {
 
 	mouseLocked_ = false;
-
-	noclip_ = false;
-	noclipHeld_ = false;
-
-	rendererRefreshed_ = false;
 }
 
 void CoreGame::init(){
@@ -26,7 +21,7 @@ void CoreGame::init(){
 	soundEngine_.initWorldSound(&world_);
 }
 
-void CoreGame::update(int time, bool updatePhysics){
+void CoreGame::update(int time, float timeDelta, bool updatePhysics){
 
 	// Lock mouse when window is clicked in
 	if(window_.isMouseInWindow() && window_.isMouseButtonDown(GLFW_MOUSE_BUTTON_1)){
@@ -35,27 +30,23 @@ void CoreGame::update(int time, bool updatePhysics){
 		window_.centerMousePosition();
 	}
 	// Unlock when pause is pressed
-	if(window_.isKeyDown(options_.control.keys[NTW_KEY_PAUSE])){
+	if(window_.isKeyDown(NTW_KEY_PAUSE)){
 		mouseLocked_ = false;
 		window_.setMouseLock(false);
 	}
 
 	// Refresh shaders
-	if(window_.isKeyDown(GLFW_KEY_R) && !rendererRefreshed_){
-		rendererRefreshed_ = true;
+	if(window_.isKeyPressed(NTW_KEY_RELOAD_FILES)){
 		renderer_.destroy();
 		renderer_.init();
 	}
-	else if(!window_.isKeyDown(GLFW_KEY_R))
-		rendererRefreshed_ = false;
 
 
-
-	world_.update(updatePhysics);
+	world_.update(timeDelta, updatePhysics);
 }
 
-void CoreGame::render(int time, float delta){
-	renderer_.renderWorld(time, delta);
+void CoreGame::render(int time, float physTimeDelta){
+	renderer_.renderWorld(time, physTimeDelta);
 }
 
 void CoreGame::finish(){

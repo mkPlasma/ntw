@@ -1,9 +1,17 @@
 #pragma once
 
 
-// Physics update timing
-#define PHYS_UPDATES_PER_SECOND 30
-#define PHYS_UPDATE_TIME_MICRO	1000000/PHYS_UPDATES_PER_SECOND
+// Rigid body physics update timing
+#define NTW_PHYS_UPDATES_PER_SECOND 20
+#define NTW_PHYS_UPDATE_TIME_MICRO	(1000000 / NTW_PHYS_UPDATES_PER_SECOND)
+
+// Rigid body physics time delta
+#define NTW_PHYS_TIME_DELTA	(1.0f / NTW_PHYS_UPDATES_PER_SECOND)
+
+// time / (updates 1000000 / updates)
+
+
+// OBSOLETE
 
 // Physics timestep multiplier
 // TEMPORARY! use a variable later
@@ -11,10 +19,14 @@
 #define PHYS_TIMESCALE 1.0f
 
 // Physics timestep value 'dt'
-#define PHYS_TIMESTEP (PHYS_TIMESCALE / PHYS_UPDATES_PER_SECOND)
+#define PHYS_TIMESTEP (PHYS_TIMESCALE / NTW_PHYS_UPDATES_PER_SECOND)
 
 // Delta multiplier for rendering
-#define PHYS_DELTA_MULT (PHYS_TIMESCALE * PHYS_UPDATES_PER_SECOND)
+#define PHYS_DELTA_MULT (PHYS_TIMESCALE * NTW_PHYS_UPDATES_PER_SECOND)
+
+
+// Maximum iterations for simple dynamic collision resolution
+#define PHYS_MAX_SIMPLE_COLLISION_ITER 10
 
 
 // Maximum number of constraint solve iterations per update
@@ -40,10 +52,10 @@
 #define PHYS_EPA_THRESHOLD 0.0f
 
 // Baumgarte stabilization factor for collisions
-#define PHYS_BAUMGARTE_FAC 0.2f
+#define NTW_PHYS_BAUMGARTE_FAC 0.05f
 
 // Maximum penetration distance before using Baumgarte stabilization
-#define PHYS_PENETRATION_SLOP 0.00f
+#define NTW_PHYS_PENETRATION_SLOP 0.005f
 
 // Reduce restitution amount
-#define PHYS_RESTITUTION_SLOP 0.0f
+#define NTW_PHYS_RESTITUTION_SLOP 0.5f

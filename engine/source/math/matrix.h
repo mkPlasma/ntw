@@ -7,6 +7,8 @@
  *
  */
 
+class Matrix;
+
 #include<glad/glad.h>
 #include<vector>
 #include"vec3.h"

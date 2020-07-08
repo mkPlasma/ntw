@@ -1,11 +1,13 @@
 #pragma once
 
 /*
- *	simplex.h
+ *	mprCollision.h
  *
- *	MPRCollision object for GJK collision detection.
+ *	MPR collision check and EPA contact point generation.
  *
  */
+
+class MPRCollision;
 
 #include"objects/object.h"
 #include"physStruct.h"

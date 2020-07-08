@@ -85,7 +85,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;__NTW_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -97,7 +97,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;__NTW_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)source;$(SolutionDir)deps\glfw-3.3\include;$(SolutionDir)deps\glad\include;$(SolutionDir)deps\openal\include;$(SolutionDir)deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -117,7 +117,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;__NTW_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -133,7 +133,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;__NTW_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)source;$(SolutionDir)deps\glfw-3.3\include;$(SolutionDir)deps\glad\include;$(SolutionDir)deps\openal\include;$(SolutionDir)deps\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -160,7 +160,7 @@
     <ClCompile Include="source\physics\physicsEngine.cpp" />
     <ClCompile Include="source\core\window.cpp" />
     <ClCompile Include="source\file\binStream.cpp" />
-    <ClCompile Include="source\graphics\modelFunc.cpp" />
+    <ClCompile Include="source\objects\modelFunc.cpp" />
     <ClCompile Include="source\core\resourceCache.cpp" />
     <ClCompile Include="source\math\mathFunc.cpp" />
     <ClCompile Include="source\math\matrix.cpp" />
@@ -173,12 +173,14 @@
     <ClCompile Include="source\objects\physicsObject.cpp" />
     <ClCompile Include="source\physics\mprCollision.cpp" />
     <ClCompile Include="source\core\world.cpp" />
+    <ClCompile Include="source\physics\satCollision.cpp" />
     <ClCompile Include="source\sound\soundEngine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\coreGame.h" />
     <ClInclude Include="source\core\engine.h" />
     <ClInclude Include="source\core\error.h" />
+    <ClInclude Include="source\core\keys.h" />
     <ClInclude Include="source\core\options.h" />
     <ClInclude Include="source\file\readSound.h" />
     <ClInclude Include="source\graphics\camera.h" />
@@ -187,13 +189,14 @@
     <ClInclude Include="source\math\quaternion.h" />
     <ClInclude Include="source\objects\player.h" />
     <ClInclude Include="source\physics\constraints\contactConstraint.h" />
+    <ClInclude Include="source\physics\satCollision.h" />
     <ClInclude Include="source\physics\physDefine.h" />
     <ClInclude Include="source\physics\physEnum.h" />
     <ClInclude Include="source\physics\constraints\constraint.h" />
     <ClInclude Include="source\physics\physicsEngine.h" />
     <ClInclude Include="source\file\binStream.h" />
     <ClInclude Include="source\file\readImage.h" />
-    <ClInclude Include="source\graphics\modelFunc.h" />
+    <ClInclude Include="source\objects\modelFunc.h" />
     <ClInclude Include="source\math\mathFunc.h" />
     <ClInclude Include="source\objects\physicsObject.h" />
     <ClInclude Include="source\physics\physStruct.h" />
@@ -201,7 +204,7 @@
     <ClInclude Include="source\core\world.h" />
     <ClInclude Include="source\core\paths.h" />
     <ClInclude Include="source\core\window.h" />
-    <ClInclude Include="source\graphics\model.h" />
+    <ClInclude Include="source\objects\model.h" />
     <ClInclude Include="source\core\resourceCache.h" />
     <ClInclude Include="source\math\matrix.h" />
     <ClInclude Include="source\graphics\renderer.h" />

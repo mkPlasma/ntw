@@ -41,11 +41,13 @@ public:
 	Vec3& operator/=(float a);
 
 	float operator[](int a) const;
+	float& operator[](int a);
 
 	Vec3 multiplyElementWise(const Vec3& a);
 
-	Vec3 compOn(const Vec3& a) const;
+	float compOn(const Vec3& a) const;
 	Vec3 projOn(const Vec3& a) const;
+	Vec3 clampedProjOn(const Vec3& a) const;
 
 	bool isZero() const;
 	bool nonzero() const;
@@ -56,7 +58,7 @@ public:
 	Vec3 unitVector() const;
 	Vec3& normalize();
 
-	bool equalsWithinThreshold(const Vec3& a, float threshold);
+	bool equalsWithinThreshold(const Vec3& a, float threshold) const;
 
 
 	void setX(float x);

@@ -1,6 +1,6 @@
 #include"renderer.h"
 
-#include"graphics/modelFunc.h"
+#include"objects/modelFunc.h"
 #include"math/mathFunc.h"
 #include"physics/physDefine.h"
 #include<math.h>
@@ -163,21 +163,16 @@ void Renderer::cleanupWorldRendering(){
 	objectBatches_.clear();
 }
 
-void Renderer::renderWorld(int time, float delta){
-
-	delta *= PHYS_DELTA_MULT;
+void Renderer::renderWorld(int time, float physTimeDelta){
 
 	// World camera
 	Camera& camera = world_->getCamera();
-
-	// Interpolate position
-	Vec3 camPos = camera.position + camera.velocity * delta;
 
 	// View and projection matrix
 	Matrix viewProj;
 
 	// View location, swap y and z axes and negate y
-	viewProj.translate(-camPos[0], -camPos[2], camPos[1]);
+	viewProj.translate(-camera.position[0], -camera.position[2], camera.position[1]);
 
 	// Yaw then pitch rotation
 	viewProj.rotate(0, -camera.yaw, 0);
@@ -191,7 +186,7 @@ void Renderer::renderWorld(int time, float delta){
 	shaderBasic_.use();
 	glUniform1i(timeUniformLoc_, time);
 	glUniformMatrix4fv(viewProjUniformLoc_, 1, GL_FALSE, viewProj.getValuesPtr());
-	glUniform3f(viewPosUniformLoc_, camPos[0], camPos[1], camPos[2]);
+	glUniform3f(viewPosUniformLoc_, camera.position[0], camera.position[1], camera.position[2]);
 
 	// Enable properties
 	glEnable(GL_DEPTH_TEST);
@@ -208,14 +203,14 @@ void Renderer::renderWorld(int time, float delta){
 			Vec3 position = obj->getPosition();
 			Quaternion rotation = obj->getRotation();
 
-			// Physics interpolation
+			// Rigid body physics interpolation
 			if(obj->getPhysicsType() == PhysicsType::DYNAMIC){
-				position += ((PhysicsObject*)obj)->getVelocity() * delta;
+				position += ((PhysicsObject*)obj)->getVelocity() * physTimeDelta;
 
 				Vec3 angularVelocity = ((PhysicsObject*)obj)->getAngularVelocity();
 				float angVelMag = angularVelocity.magnitude();
 				if(angVelMag != 0)
-					rotation.rotate(angularVelocity / angVelMag, angVelMag * delta);
+					rotation.rotate(angularVelocity, angVelMag * physTimeDelta);
 			}
 
 			Matrix model;
@@ -268,7 +263,6 @@ void Renderer::renderWorld(int time, float delta){
 
 
 	// TEMPORARY!
-	/*
 	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
 
 	shaderWireframe_.use();
@@ -283,6 +277,7 @@ void Renderer::renderWorld(int time, float delta){
 	for(auto i = collisions.begin(); i != collisions.end(); i++){
 		for(auto j = (*i).contacts.begin(); j != (*i).contacts.end(); j++){
 
+			/*
 			Object* obj1 = (*i).objects.object1;
 			Object* obj2 = (*i).objects.object2;
 			bool obj1Dynamic = obj1->getPhysicsType() == PhysicsType::DYNAMIC;
@@ -306,11 +301,11 @@ void Renderer::renderWorld(int time, float delta){
 			// Translate
 			obj1ContactGlobalU += obj1Dynamic ? ((PhysicsObject*)obj1)->getTPosition() : obj1->getPosition();
 			obj2ContactGlobalU += obj2Dynamic ? ((PhysicsObject*)obj2)->getTPosition() : obj2->getPosition();
+			//*/
 
-
-			verts.push_back((*j).obj1ContactGlobal[0]);
-			verts.push_back((*j).obj1ContactGlobal[1]);
-			verts.push_back((*j).obj1ContactGlobal[2]);
+			verts.push_back((*i).objects.object1->getPosition()[0] + (*j).obj1ContactVector[0]);
+			verts.push_back((*i).objects.object1->getPosition()[1] + (*j).obj1ContactVector[1]);
+			verts.push_back((*i).objects.object1->getPosition()[2] + (*j).obj1ContactVector[2]);
 			numContacts++;
 		}
 	}
@@ -326,9 +321,9 @@ void Renderer::renderWorld(int time, float delta){
 			verts.push_back((*j).obj2ContactGlobal[0]);
 			verts.push_back((*j).obj2ContactGlobal[1]);
 			verts.push_back((*j).obj2ContactGlobal[2]);
-			verts.push_back((*j).obj2ContactGlobal[0] + (*j).normal[0]);
-			verts.push_back((*j).obj2ContactGlobal[1] + (*j).normal[1]);
-			verts.push_back((*j).obj2ContactGlobal[2] + (*j).normal[2]);
+			verts.push_back((*j).obj2ContactGlobal[0] + (*j).normal[0] / 10);
+			verts.push_back((*j).obj2ContactGlobal[1] + (*j).normal[1] / 10);
+			verts.push_back((*j).obj2ContactGlobal[2] + (*j).normal[2] / 10);
 		}
 	}
 
@@ -350,7 +345,7 @@ void Renderer::renderWorld(int time, float delta){
 	glEnableVertexAttribArray(0);
 
 	// Render
-	glPointSize(10);
+	glPointSize(20);
 	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 0);
 	glDrawArrays(GL_POINTS, 0, numContacts);
 
@@ -373,5 +368,4 @@ void Renderer::renderWorld(int time, float delta){
 	glDeleteVertexArrays(1, &vao);
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	*/
 }
