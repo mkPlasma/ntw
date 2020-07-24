@@ -153,8 +153,11 @@
     <ClCompile Include="source\core\coreGame.cpp" />
     <ClCompile Include="source\core\engine.cpp" />
     <ClCompile Include="source\core\error.cpp" />
+    <ClCompile Include="source\graphics\rendererWorld.cpp" />
     <ClCompile Include="source\math\quaternion.cpp" />
     <ClCompile Include="source\objects\player.cpp" />
+    <ClCompile Include="source\objects\portal.cpp" />
+    <ClCompile Include="source\physics\aabbTree.cpp" />
     <ClCompile Include="source\physics\constraints\constraint.cpp" />
     <ClCompile Include="source\physics\constraints\contactConstraint.cpp" />
     <ClCompile Include="source\physics\physicsEngine.cpp" />
@@ -171,7 +174,6 @@
     <ClCompile Include="source\objects\object.cpp" />
     <ClCompile Include="source\physics\physicsEngineCollisions.cpp" />
     <ClCompile Include="source\objects\physicsObject.cpp" />
-    <ClCompile Include="source\physics\mprCollision.cpp" />
     <ClCompile Include="source\core\world.cpp" />
     <ClCompile Include="source\physics\satCollision.cpp" />
     <ClCompile Include="source\sound\soundEngine.cpp" />
@@ -185,9 +187,13 @@
     <ClInclude Include="source\file\readSound.h" />
     <ClInclude Include="source\graphics\camera.h" />
     <ClInclude Include="source\graphics\renderType.h" />
+    <ClInclude Include="source\objects\collider.h" />
+    <ClInclude Include="source\objects\hitbox.h" />
     <ClInclude Include="source\objects\material.h" />
     <ClInclude Include="source\math\quaternion.h" />
     <ClInclude Include="source\objects\player.h" />
+    <ClInclude Include="source\objects\portal.h" />
+    <ClInclude Include="source\physics\aabbTree.h" />
     <ClInclude Include="source\physics\constraints\contactConstraint.h" />
     <ClInclude Include="source\physics\satCollision.h" />
     <ClInclude Include="source\physics\physDefine.h" />
@@ -200,7 +206,6 @@
     <ClInclude Include="source\math\mathFunc.h" />
     <ClInclude Include="source\objects\physicsObject.h" />
     <ClInclude Include="source\physics\physStruct.h" />
-    <ClInclude Include="source\physics\mprCollision.h" />
     <ClInclude Include="source\core\world.h" />
     <ClInclude Include="source\core\paths.h" />
     <ClInclude Include="source\core\window.h" />

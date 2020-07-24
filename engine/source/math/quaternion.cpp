@@ -5,13 +5,12 @@
 #include"mathFunc.h"
 
 
-Quaternion::Quaternion() : w_(1), x_(0), y_(0), z_(0) {
+Quaternion::Quaternion(float x, float y, float z, float w) :
+	x_(x), y_(y), z_(z), w_(w) {
 
 }
 
-
-Quaternion::Quaternion(float w, float x, float y, float z) :
-	w_(w), x_(x), y_(y), z_(z) {
+Quaternion::Quaternion() : Quaternion(0, 0, 0, 1) {
 
 }
 
@@ -45,10 +44,10 @@ Quaternion operator-(const Quaternion& a){
 
 Quaternion operator*(const Quaternion& a, const Quaternion& b){
 	return Quaternion(
-		a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
-		a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
-		a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
-		a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+		a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+		a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+		a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+		a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]
 	);
 }
 
@@ -99,10 +98,10 @@ bool operator==(const Quaternion& a, const Quaternion& b){
 
 float Quaternion::operator[](int a) const{
 	switch(a){
-	case 0:	return w_;
-	case 1:	return x_;
-	case 2:	return y_;
-	case 3:	return z_;
+	case 0:	return x_;
+	case 1:	return y_;
+	case 2:	return z_;
+	case 3:	return w_;
 	}
 
 	throw std::runtime_error("Quaternion index out of bounds: " + std::to_string(a));
@@ -117,10 +116,10 @@ void Quaternion::setRotation(Vec3 axis, float ang){
 	axis.normalize();
 	axis *= sinf(ang / 2);
 
-	w_ = cosf(ang / 2);
 	x_ = axis[0];
 	y_ = axis[1];
 	z_ = axis[2];
+	w_ = cosf(ang / 2);
 }
 
 void Quaternion::setRotation(float x, float y, float z, float ang){
@@ -136,10 +135,10 @@ void Quaternion::setRotation(const Vec3& euler){
 	float cz = cosf(ntw::toRadians(euler[2] / 2));
 	float sz = sinf(ntw::toRadians(euler[2] / 2));
 
-	w_ = cx * cy * cz + sx * sy * sz;
 	x_ = sx * cy * cz - cx * sy * sz;
 	y_ = sx * cy * sz + cx * sy * cz;
 	z_ = cx * cy * sz - sx * sy * cz;
+	w_ = cx * cy * cz + sx * sy * sz;
 }
 
 void Quaternion::setRotation(float x, float y, float z){
@@ -173,10 +172,10 @@ Quaternion& Quaternion::rotate(float x, float y, float z){
 
 float Quaternion::magnitude() const{
 	return sqrtf(
-		powf(w_, 2) +
 		powf(x_, 2) +
 		powf(y_, 2) +
-		powf(z_, 2)
+		powf(z_, 2) +
+		powf(w_, 2)
 	);
 }
 

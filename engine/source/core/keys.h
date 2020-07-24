@@ -9,16 +9,16 @@ enum NTWKeys{
 	NTW_KEY_LEFT,
 
 	NTW_KEY_JUMP,
-	NTW_KEY_NOCLIP,
+
+	NTW_KEY_GRAB,
 
 	NTW_KEY_PAUSE,
 
-	NTW_KEYS_SIZE,
 
-
-	// Debug keys included in debug compile only
+	// Debug keys
+	NTW_KEY_NOCLIP,
 
 	NTW_KEY_RELOAD_FILES,
 
-	NTW_KEYS_DEBUG_SIZE
+	NTW_KEYS_SIZE,
 };

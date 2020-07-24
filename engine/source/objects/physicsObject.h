@@ -39,8 +39,8 @@ protected:
 	Vec3 acceleration_;
 
 public:
-	PhysicsObject(Model* model, Material* material, HitboxType hitboxType, float mass);
-	PhysicsObject(Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass);
+	PhysicsObject(World& world, Model* model, Material* material, HitboxType hitboxType, float mass);
+	PhysicsObject(World& world, Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass);
 
 	// Initialize inertia matrix and t-variables
 	void initPhysics();

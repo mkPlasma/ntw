@@ -16,11 +16,18 @@ class Object;
 #include"graphics/renderType.h"
 #include"physics/physEnum.h"
 #include"physics/physStruct.h"
+#include"objects/collider.h"
 #include<al.h>
+
+class World;
+struct Collider;
+struct ContactInfo;
 
 
 class Object{
 protected:
+	World& world_;
+
 	Vec3 position_;
 	Vec3 scale_;
 	Quaternion rotation_;
@@ -32,7 +39,9 @@ protected:
 	PhysicsType physicsType_;
 	HitboxType hitboxType_;
 
-	vector<Vec3> transformedHitbox_;
+	bool deleted_;
+
+	vector<Collider> colliders_;
 	Hitbox transformedHitboxSAT_;
 	bool hitboxCached_;
 
@@ -41,10 +50,12 @@ protected:
 	ALuint soundSource_;
 
 public:
-	Object(Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType);
-	Object(Model* model, Material* material, RenderType renderType, HitboxType hitboxType = HitboxType::NONE);
+	Object(World& world, Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType);
+	Object(World& world, Model* model, Material* material, RenderType renderType, HitboxType hitboxType = HitboxType::NONE);
 
 	virtual void update(float timeDelta);
+
+	void deleteObject();
 
 	void updateSoundSource();
 	void playSound(ALuint soundID);
@@ -79,6 +90,15 @@ public:
 	void setModel(Model* model);
 	void setMaterial(Material* material);
 
+	void setRenderType(RenderType renderType);
+	void setPhysicsType(PhysicsType physicsType);
+	void setHitboxType(HitboxType hitboxType);
+
+	bool cacheTransformedHitbox();
+
+	void addContact(ContactInfo contact);
+
+
 
 	const Vec3& getPosition() const;
 	const Vec3& getScale() const;
@@ -93,9 +113,14 @@ public:
 	PhysicsType getPhysicsType() const;
 	HitboxType getHitboxType() const;
 
-	const vector<Vec3>& getTransformedHitbox();
+	const vector<Collider>& getColliders() const;
 	const Hitbox& getTransformedHitboxSAT();
+
+
+	bool isDeleted() const;
 
 	ALuint getSoundSource() const;
 	bool hasSoundSource() const;
+
+	const vector<ContactInfo>& getContacts() const;
 };

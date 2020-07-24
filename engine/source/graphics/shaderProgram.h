@@ -20,12 +20,17 @@ using std::string;
 
 class ShaderProgram{
 
+	const string name_;
+
 	GLuint program_;
 	GLuint vShader_, fShader_;
 
 	GLuint compileShader(const string& path, const GLenum& type);
 
 public:
+	ShaderProgram(const string& name);
+	ShaderProgram();
+
 	void compile(const string& vShader, const string& fShader);
 
 	void bindAttrib(int index, const string& name);
@@ -34,6 +39,9 @@ public:
 	void use();
 
 	void destroy();
+
+	GLint getUniformLocation(const GLchar* uniform);
 	
+	const string& getName();
 	GLuint getProgram();
 };

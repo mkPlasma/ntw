@@ -8,6 +8,15 @@
 using ntw::fatalError;
 
 
+ShaderProgram::ShaderProgram(const string& name) : name_(name) {
+
+}
+
+ShaderProgram::ShaderProgram() : ShaderProgram("") {
+
+}
+
+
 void ShaderProgram::compile(const string& vShader, const string& fShader){
 
 	vShader_ = compileShader(vShader, GL_VERTEX_SHADER);
@@ -102,6 +111,14 @@ void ShaderProgram::use(){
 
 void ShaderProgram::destroy(){
 	glDeleteProgram(program_);
+}
+
+GLint ShaderProgram::getUniformLocation(const GLchar* uniform){
+	return glGetUniformLocation(program_, uniform);
+}
+
+const string& ShaderProgram::getName(){
+	return name_;
 }
 
 GLuint ShaderProgram::getProgram(){

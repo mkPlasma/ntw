@@ -6,7 +6,7 @@
 
 CoreGame::CoreGame(Options& options, Window& window) :
 	options_(options), window_(window), renderer_(options.graphics), soundEngine_(options.sound),
-	world_(options, resCache_, soundEngine_, window) {
+	world_(options_, resCache_, window_, renderer_, soundEngine_) {
 
 	mouseLocked_ = false;
 }
@@ -30,7 +30,7 @@ void CoreGame::update(int time, float timeDelta, bool updatePhysics){
 		window_.centerMousePosition();
 	}
 	// Unlock when pause is pressed
-	if(window_.isKeyDown(NTW_KEY_PAUSE)){
+	if(window_.isKeyPressed(NTW_KEY_PAUSE)){
 		mouseLocked_ = false;
 		window_.setMouseLock(false);
 	}
@@ -41,12 +41,12 @@ void CoreGame::update(int time, float timeDelta, bool updatePhysics){
 		renderer_.init();
 	}
 
-
 	world_.update(timeDelta, updatePhysics);
 }
 
 void CoreGame::render(int time, float physTimeDelta){
 	renderer_.renderWorld(time, physTimeDelta);
+	renderer_.render(time);
 }
 
 void CoreGame::finish(){

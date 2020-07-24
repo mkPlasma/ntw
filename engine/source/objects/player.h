@@ -10,6 +10,8 @@
 #include"physicsObject.h"
 #include"core/options.h"
 
+#define NTW_PLAYER_EYE_LEVEL 0.9f
+
 
 class Player : public PhysicsObject{
 
@@ -18,8 +20,13 @@ class Player : public PhysicsObject{
 
     float yaw_;
     float pitch_;
-    
+    float yawDifference_;
+    float pitchDifference_;
+
     bool noclip_;
+
+    // Eye/camera position
+    Vec3 eyePosition_;
 
     // Directional vectors
     Vec3 look_;
@@ -27,10 +34,15 @@ class Player : public PhysicsObject{
     Vec3 lookUp_;
     Vec3 move_;
 
-public:
-    Player(ControlOptions& cOptions, Window& window);
+    // Held object properties
+    PhysicsObject* heldObject_;
 
-    void initPlayer();
+    bool heldObjectUseGravity_;
+    PhysicsType heldObjectPhysicsType_;
+
+public:
+    Player(World& world, Model* model, ControlOptions& cOptions, Window& window);
+
     void updatePlayer(float timeDelta);
 
     void updateLookVectors();
@@ -38,6 +50,8 @@ public:
 
     float getYaw();
     float getPitch();
+
+    const Vec3& getEyePosition();
 
     const Vec3& getLookVector();
     const Vec3& getLookRightVector();

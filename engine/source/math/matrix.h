@@ -33,8 +33,9 @@ public:
 	// Initialize to given values
 	Matrix(mat values, int rows, int cols);
 
-	// Initialize to 4D projection matrix
-	Matrix(float fovy, float aspect, float zNear, float zFar);
+	// Create 4D projection matrix
+	static Matrix projectionMatrix(float fovy, float aspect, float zNear, float zFar);
+	static Matrix projectionMatrix(float fovy, float aspect, float zFar, const Vec3& normal, float dist);
 
 
 	friend Matrix operator+(const Matrix& a, const Matrix& b);
@@ -59,8 +60,8 @@ public:
 
 	Matrix& rotate(const Quaternion& q);
 	Matrix& rotate(Vec3 axis, float ang);
-	Matrix& rotate(float x, float y, float z);
-	Matrix& rotate(const Vec3& v);
+	Matrix& rotate(float x, float y, float z, bool degrees = true);
+	Matrix& rotate(const Vec3& v, bool degree = true);
 
 
 	Matrix& place(int row, int col, const Matrix& a);

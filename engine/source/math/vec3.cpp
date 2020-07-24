@@ -13,7 +13,7 @@ Vec3::Vec3(float x, float y, float z) : x_(x), y_(y), z_(z) {}
 Vec3::Vec3(float yaw, float pitch){
 
 	yaw		= ntw::toRadians(yaw);
-	pitch	= ntw::toRadians(pitch - 90);
+	pitch	= ntw::toRadians(90 - pitch);
 
 	float sp = sinf(pitch);
 	x_ = cosf(yaw) * sp;
@@ -105,6 +105,11 @@ bool operator!=(const Vec3& a, const Vec3& b){
 	return a[0] != b[0] || a[1] != b[1] || a[2] != b[2];
 }
 
+
+Vec3& Vec3::operator=(float a){
+	x_ = y_ = z_ = a;
+	return *this;
+}
 
 Vec3& Vec3::operator+=(const Vec3& a){
 	return *this = *this + a;
@@ -222,6 +227,15 @@ Vec3 Vec3::unitVector() const{
 
 Vec3& Vec3::normalize(){
 	return *this = unitVector();
+}
+
+Vec3& Vec3::setMagnitude(float magnitude){
+	if(nonzero()){
+		normalize();
+		*this *= magnitude;
+	}
+
+	return *this;
 }
 
 bool Vec3::equalsWithinThreshold(const Vec3& a, float threshold) const{

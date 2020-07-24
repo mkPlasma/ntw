@@ -31,10 +31,10 @@ void Constraint::init(){
 	}
 
 	// Velocity vector
-	vel_.place(0, 0, obj1Phys ? pObj1->getVelocity()		* NTW_PHYS_TIME_DELTA : Vec3());
-	vel_.place(3, 0, obj1Phys ? pObj1->getAngularVelocity()	* NTW_PHYS_TIME_DELTA : Vec3());
-	vel_.place(6, 0, obj2Phys ? pObj2->getVelocity()		* NTW_PHYS_TIME_DELTA : Vec3());
-	vel_.place(9, 0, obj2Phys ? pObj2->getAngularVelocity()	* NTW_PHYS_TIME_DELTA : Vec3());
+	vel_.place(0, 0, obj1Phys ? pObj1->getVelocity()		: Vec3());
+	vel_.place(3, 0, obj1Phys ? pObj1->getAngularVelocity()	: Vec3());
+	vel_.place(6, 0, obj2Phys ? pObj2->getVelocity()		: Vec3());
+	vel_.place(9, 0, obj2Phys ? pObj2->getAngularVelocity()	: Vec3());
 
 	invInertia1_ = obj1Dynamic ? pObj1->getTInertiaInv() : Matrix(3, 3);
 	invInertia2_ = obj2Dynamic ? pObj2->getTInertiaInv() : Matrix(3, 3);
@@ -58,7 +58,7 @@ bool Constraint::calcConstraint(){
 	constraint_ = (jac_ * vel_).get(0, 0) + bias_;
 
 	// Return true if constraint is satisfied
-	return abs(constraint_) < PHYS_CONSTRAINT_THRESHOLD || (constrainGreaterThanZero_ && constraint_ > 0);
+	return abs(constraint_) < NTW_PHYS_CONSTRAINT_THRESHOLD || (constrainGreaterThanZero_ && constraint_ > 0);
 }
 
 void Constraint::calcInvMassJt(){
@@ -87,7 +87,7 @@ void Constraint::calcInvMassJt(){
 }
 
 void Constraint::calcLambda(){
-	lambda_ = -constraint_ / ((jac_ * invMassJt_ * NTW_PHYS_TIME_DELTA).get(0, 0));
+	lambda_ = -constraint_ / ((jac_ * invMassJt_).get(0, 0));
 }
 
 void Constraint::calcVelCor(){

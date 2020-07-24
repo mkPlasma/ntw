@@ -8,4 +8,5 @@ struct Camera{
 	Vec3 velocity;
 	float yaw;
 	float pitch;
+	float roll;
 };

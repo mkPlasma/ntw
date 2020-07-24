@@ -80,12 +80,17 @@ void Engine::gameLoop(){
 		// Get game time (ms)
 		int timeMillis = timeBetween(startTime, currentTime) / 1000;
 
+
 		// Update game
 		window_.updateKeys();
 		game_.update(timeMillis, timeDelta, fullPhysicsUpdate);
 
 		// Render
-		render(timeMillis, physTimeDelta);
+		game_.render(timeMillis, physTimeDelta);
+		glfwSwapBuffers(winPtr_);
+
+		// Poll window events
+		glfwPollEvents();
 
 
 		// Print FPS
@@ -134,16 +139,6 @@ void Engine::gameLoop(){
 	}
 
 	finish();
-}
-
-void Engine::render(int time, float physTimeDelta){
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	game_.render(time, physTimeDelta);
-
-	glfwSwapBuffers(winPtr_);
-	glfwPollEvents();
 }
 
 void Engine::finish(){

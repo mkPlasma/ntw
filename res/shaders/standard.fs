@@ -34,7 +34,7 @@ void main(){
 	float specular = pow(max(dot(normal, halfwayDir), 0.0), 64.0) * specularAmt;
 	
 	vec3 light = (diffuse + specular) * lightAttenuation * lightPower * lightColor;
-	
+	light += vec3(0.1, 0.1, 0.1);
 	
 	// Object color
 	fragColor = texture(tex, fTexCoords);

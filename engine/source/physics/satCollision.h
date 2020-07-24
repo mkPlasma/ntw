@@ -12,15 +12,9 @@ class SATCollision;
 #include"objects/object.h"
 #include"physStruct.h"
 
-// Temp include for CVertex struct
-#include"physics/mprCollision.h"
 
 // Threshold to allow for a small amount of penetration before registering collision
 #define NTW_SAT_THRESHOLD	-0.0001f
-
-// Directional bias for resolving collisions in a particular direction
-// For example, force SAT to use bottom face of player hitbox to ensure ramps work
-#define NTW_SAT_NORMAL_BIAS	0
 
 
 // Store distance and index of queried faces/edges

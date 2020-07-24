@@ -32,6 +32,7 @@ public:
 	friend bool operator==(const Vec3& a, const Vec3& b);
 	friend bool operator!=(const Vec3& a, const Vec3& b);
 
+	Vec3& operator=(float a);
 	Vec3& operator+=(const Vec3& a);
 	Vec3& operator+=(float a);
 	Vec3& operator-=(const Vec3& a);
@@ -57,6 +58,7 @@ public:
 
 	Vec3 unitVector() const;
 	Vec3& normalize();
+	Vec3& setMagnitude(float magnitude);
 
 	bool equalsWithinThreshold(const Vec3& a, float threshold) const;
 

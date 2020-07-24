@@ -43,17 +43,47 @@ Matrix::Matrix(mat values, int rows, int cols) : values_(values), rows_(rows), c
 }
 
 // Initialize to 4D projection matrix
-Matrix::Matrix(float fovy, float aspect, float zNear, float zFar) : rows_(4), cols_(4) {
+Matrix Matrix::projectionMatrix(float fovy, float aspect, float zNear, float zFar){
 
 	float f = 1 / tanf(toRadians(fovy) / 2);
 	float zr = zNear - zFar;
 
-	values_ = {
-		f / aspect,	0,	0,	0,
-		0,			f,	0,	0,
-		0,			0,	(zFar + zNear) / zr,		-1,
-		0,			0,	(2 * zFar * zNear) / zr,	0
+	return Matrix(
+		{
+			f / aspect,	0,	0,	0,
+			0,			f,	0,	0,
+			0,			0,	(zFar + zNear) / zr,		-1,
+			0,			0,	(2 * zFar * zNear) / zr,	0
+		}, 4, 4);
+}
+
+// 4D projection matrix with oblique near clipping plane
+Matrix Matrix::projectionMatrix(float fovy, float aspect, float zFar, const Vec3& normal, float dist){
+
+	Matrix proj = projectionMatrix(fovy, aspect, dist, zFar);
+
+	auto l_sign = [](float val) -> int {
+		return val == 0 ? 0 : val > 0 ? 1 : -1;
 	};
+
+	float cx = normal[0];
+	float cy = normal[1];
+	float cz = normal[2];
+	float cw = dist;
+
+	float qx = (l_sign(cx) + proj.get(2, 0)) / proj.get(0, 0);
+	float qy = (l_sign(cy) + proj.get(2, 1)) / proj.get(1, 1);
+	float qz = -1;
+	float qw = 1 / zFar;
+
+	float fac = 2 / ((cx * qx) + (cy * qy) + (cz * qz) + (cw * qw));
+
+	proj.set(0, 2, fac * cx);
+	proj.set(1, 2, fac * cy);
+	proj.set(2, 2, fac * cz + 1);
+	proj.set(3, 2, fac * cw);
+
+	return proj;
 }
 
 Matrix operator+(const Matrix& a, const Matrix& b){
@@ -175,7 +205,7 @@ Matrix& Matrix::operator/=(float a){
 
 
 Matrix& Matrix::translate(float x, float y, float z){
-	Matrix t = Matrix();
+	Matrix t ;
 	t.set(0, 3, x);
 	t.set(1, 3, y);
 	t.set(2, 3, z);
@@ -188,7 +218,7 @@ Matrix& Matrix::translate(const Vec3& v){
 }
 
 Matrix& Matrix::scale(float x, float y, float z){
-	Matrix t = Matrix();
+	Matrix t;
 	t.set(0, 0, x);
 	t.set(1, 1, y);
 	t.set(2, 2, z);
@@ -202,10 +232,10 @@ Matrix& Matrix::scale(const Vec3& v){
 
 Matrix& Matrix::rotate(const Quaternion& q){
 
-	float w = q[0];
-	float x = q[1];
-	float y = q[2];
-	float z = q[3];
+	float x = q[0];
+	float y = q[1];
+	float z = q[2];
+	float w = q[3];
 	float x2 = 2 * powf(x, 2);
 	float y2 = 2 * powf(y, 2);
 	float z2 = 2 * powf(z, 2);
@@ -245,16 +275,20 @@ Matrix& Matrix::rotate(Vec3 axis, float ang){
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(float x, float y, float z){
+Matrix& Matrix::rotate(float x, float y, float z, bool degrees){
 
-	float cx = cosf(toRadians(x));
-	float sx = sinf(toRadians(x));
+	float ax = degrees ? toRadians(x) : x;
+	float ay = degrees ? toRadians(y) : y;
+	float az = degrees ? toRadians(z) : z;
 
-	float cy = cosf(toRadians(y));
-	float sy = sinf(toRadians(y));
+	float cx = cosf(ax);
+	float sx = sinf(ax);
 
-	float cz = cosf(toRadians(z));
-	float sz = sinf(toRadians(z));
+	float cy = cosf(ay);
+	float sy = sinf(ay);
+
+	float cz = cosf(az);
+	float sz = sinf(az);
 
 	Matrix t = Matrix();
 	t.set(0, 0, cy * cz);
@@ -272,8 +306,8 @@ Matrix& Matrix::rotate(float x, float y, float z){
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(const Vec3& v){
-	return rotate(v[0], v[1], v[2]);
+Matrix& Matrix::rotate(const Vec3& v, bool degrees){
+	return rotate(v[0], v[1], v[2], degrees);
 }
 
 

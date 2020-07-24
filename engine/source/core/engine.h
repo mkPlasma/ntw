@@ -40,6 +40,4 @@ public:
 	Engine();
 
 	void start();
-
-	void render(int time, float physTimeDelta);
 };

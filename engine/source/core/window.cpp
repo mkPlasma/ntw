@@ -17,9 +17,6 @@ void Window::init(){
 
 	int numKeys = NTW_KEYS_SIZE;
 
-#ifdef __NTW_DEBUG__
-	numKeys = NTW_KEYS_DEBUG_SIZE;
-#endif
 
 	for(int i = 0; i < numKeys; i++)
 		keys_[i] = false;
@@ -74,6 +71,28 @@ void Window::init(){
 	glfwSwapInterval(options_.graphics.useVSync);
 }
 
+void Window::updateKeys(){
+
+	// Update keys if window is focused
+	if(glfwGetWindowAttrib(window_, GLFW_FOCUSED)){
+
+		// Update each key status in array
+		for(int i = 0; i < NTW_KEYS_SIZE; i++){
+			bool prev = keys_[i];
+			keys_[i] = glfwGetKey(window_, options_.control.keys[i]) == GLFW_PRESS;
+
+			// key in keyPress array is true only when pressed initially
+			keyPress_[i] = !prev && keys_[i];
+		}
+	}
+	else{
+		for(int i = 0; i < NTW_KEYS_SIZE; i++){
+			keys_[i] = false;
+			keyPress_[i] = false;
+		}
+	}
+}
+
 void Window::setMouseLock(bool lock){
 	mouseLocked_ = lock;
 	glfwSetInputMode(window_, GLFW_CURSOR, lock ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
@@ -84,23 +103,6 @@ void Window::centerMousePosition(){
 		glfwSetCursorPos(window_, centerX_, centerY_);
 }
 
-void Window::updateKeys(){
-
-	int numKeys = NTW_KEYS_SIZE;
-
-#ifdef __NTW_DEBUG__
-	numKeys = NTW_KEYS_DEBUG_SIZE;
-#endif
-
-	// Update each key status in array
-	for(int i = 0; i < numKeys; i++){
-		bool prev = keys_[i];
-		keys_[i] = glfwGetKey(window_, options_.control.keys[i]) == GLFW_PRESS;
-
-		// key in keyPress array is true only when pressed initially
-		keyPress_[i] = !prev && keys_[i];
-	}
-}
 
 bool Window::isKeyDown(int key){
 	return keys_[key];

@@ -95,16 +95,12 @@ ContactManifold SATCollision::getContactPoints(){
 			float dot = obj2Hitbox_.faces[i].normal* obj1Hitbox_.faces[fi1].normal;
 
 			if(dot < bestDot){
-				// Directional bias
-				if(fi2 != -1 && bestDot - dot < NTW_SAT_NORMAL_BIAS && abs(obj2Hitbox_.faces[i].normal * biasDirection) < abs(obj2Hitbox_.faces[fi2].normal * biasDirection))
-					continue;
-
 				fi2 = i;
 				bestDot = dot;
 			}
 		}
 	}
-	else{
+	else if(fi2 != -1){
 		normal = obj2Hitbox_.faces[fi2].normal;
 
 		// Get opposite face
@@ -114,14 +110,14 @@ ContactManifold SATCollision::getContactPoints(){
 			float dot = obj1Hitbox_.faces[i].normal * obj2Hitbox_.faces[fi2].normal;
 
 			if(dot < bestDot){
-				// Directional bias
-				if(fi1 != -1 && bestDot - dot < NTW_SAT_NORMAL_BIAS && abs(obj1Hitbox_.faces[i].normal * biasDirection) < abs(obj1Hitbox_.faces[fi1].normal * biasDirection))
-					continue;
-
 				fi1 = i;
 				bestDot = dot;
 			}
 		}
+	}
+	else{
+		ntw::warning("SAT contact point generation failure, edge did not have any adjacent faces");
+		return ContactManifold();
 	}
 
 	// Get faces

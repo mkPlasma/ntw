@@ -30,10 +30,10 @@ void ContactConstraint::init(){
 	bool obj2Phys = object2_->getPhysicsType() == PhysicsType::DYNAMIC || object2_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
 
 	// Normal constraint
-	Vec3 vel1		= obj1Phys ? ((PhysicsObject*)object1_)->getVelocity()			* NTW_PHYS_TIME_DELTA : Vec3();
-	Vec3 angVel1	= obj1Phys ? ((PhysicsObject*)object1_)->getAngularVelocity()	* NTW_PHYS_TIME_DELTA : Vec3();
-	Vec3 vel2		= obj2Phys ? ((PhysicsObject*)object2_)->getVelocity()			* NTW_PHYS_TIME_DELTA : Vec3();
-	Vec3 angVel2	= obj2Phys ? ((PhysicsObject*)object2_)->getAngularVelocity()	* NTW_PHYS_TIME_DELTA : Vec3();
+	Vec3 vel1		= obj1Phys ? ((PhysicsObject*)object1_)->getVelocity()			: Vec3();
+	Vec3 angVel1	= obj1Phys ? ((PhysicsObject*)object1_)->getAngularVelocity()	: Vec3();
+	Vec3 vel2		= obj2Phys ? ((PhysicsObject*)object2_)->getVelocity()			: Vec3();
+	Vec3 angVel2	= obj2Phys ? ((PhysicsObject*)object2_)->getAngularVelocity()	: Vec3();
 
 	// Baumgarte stabilization
 	biasNormal_ = -(NTW_PHYS_BAUMGARTE_FAC / NTW_PHYS_TIME_DELTA) * max(contact_.depth - NTW_PHYS_PENETRATION_SLOP, 0.0f);
@@ -42,7 +42,7 @@ void ContactConstraint::init(){
 	contact_.closingSpeed = ((-vel1 - crossProduct(angVel1, contact_.obj1ContactVector)
 		+ (vel2 + crossProduct(angVel2, contact_.obj2ContactVector))) * -contact_.normal);
 	// TODO: change multiplier (0.5f) to factor determined by material elasticity
-	biasNormal_ += 0.0f * max(contact_.closingSpeed - NTW_PHYS_RESTITUTION_SLOP, 0.0f);
+	biasNormal_ += 0.1f * max(contact_.closingSpeed - NTW_PHYS_RESTITUTION_SLOP, 0.0f);
 
 	// Set jacobians
 	auto l_setJacobian = [](Matrix& jac, const Contact& contact, const Vec3& direction) -> void {
@@ -133,7 +133,7 @@ void ContactConstraint::solve(){
 		lambda_ = *lambdaSum - lambdaSumCopy;
 
 		// If lambda is small enough, it will not have much effect so consider the constraint solved
-		if(abs(lambda_) < PHYS_CONSTRAINT_THRESHOLD)
+		if(abs(lambda_) < NTW_PHYS_CONSTRAINT_THRESHOLD)
 			continue;
 
 

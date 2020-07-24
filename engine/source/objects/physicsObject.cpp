@@ -5,12 +5,12 @@
 
 
 
-PhysicsObject::PhysicsObject(Model* model, Material* material, HitboxType hitboxType, float mass) :
-	PhysicsObject(model, material, PhysicsType::DYNAMIC, hitboxType, mass) {
+PhysicsObject::PhysicsObject(World& world, Model* model, Material* material, HitboxType hitboxType, float mass) :
+	PhysicsObject(world, model, material, PhysicsType::DYNAMIC, hitboxType, mass) {
 }
 
-PhysicsObject::PhysicsObject(Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass) :
-	Object(model, material, model == nullptr ? RenderType::NONE : RenderType::DYNAMIC, physicsType, hitboxType),
+PhysicsObject::PhysicsObject(World& world, Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass) :
+	Object(world, model, material, model == nullptr ? RenderType::NONE : RenderType::DYNAMIC, physicsType, hitboxType),
 	mass_(mass), massInv_(1 / mass), useRotation_(true), useGravity_(true), useFriction_(true),
 	onGround_(false), onGroundClearNextFrame_(false) {
 	
@@ -87,8 +87,10 @@ void PhysicsObject::updatePhysics(float timeDelta){
 
 	// Simple friction
 	if(physicsType_ == PhysicsType::DYNAMIC_SIMPLE && useFriction_ && onGround_){
-		velocity_[0] /= (powf(2.718f, 10 * timeDelta));
-		velocity_[1] /= (powf(2.718f, 10 * timeDelta));
+		float factor = 1 / powf(2.718f, 10 * timeDelta);
+		velocity_[0] *= factor;
+		velocity_[1] *= factor;
+		angularVelocity_ *= factor;
 	}
 
 	// Update rotation
@@ -103,6 +105,10 @@ void PhysicsObject::updatePhysics(float timeDelta){
 	// Update t-variables
 	tPosition_ = position_;
 	tRotation_ = rotation_;
+
+	// Cache hitbox next update if the object has moved or rotated
+	if(velocity_.nonzero() || angularVelocity_.nonzero())
+		hitboxCached_ = false;
 
 	// Clear on ground flag
 	if(onGroundClearNextFrame_)

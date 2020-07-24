@@ -3,14 +3,29 @@
 #include"math/matrix.h"
 
 
-Object::Object(Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType) :
-	scale_(Vec3(1, 1, 1)), model_(model), material_(material), renderType_(renderType),
+Object::Object(World& world, Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType) :
+	world_(world), scale_(Vec3(1, 1, 1)), model_(model), material_(material), renderType_(renderType),
 	physicsType_(physicsType), hitboxType_(hitboxType), hitboxCached_(false), soundSource_(-1) {
 
+	// Add colliders
+	if(physicsType != PhysicsType::NONE && model_ != nullptr){
+		for(Hitbox& hitbox : model_->colliderHitboxes){
+			Collider c;
+			c.hitbox = &hitbox;
+			c.parent = this;
+
+			// Copy hitbox data to transformed hitbox
+			c.hitboxTransformed.vertices	= c.hitbox->vertices;
+			c.hitboxTransformed.edges		= c.hitbox->edges;
+			c.hitboxTransformed.faces		= c.hitbox->faces;
+
+			colliders_.push_back(c);
+		}
+	}
 }
 
-Object::Object(Model* model, Material* material, RenderType renderType, HitboxType hitboxType) :
-	Object(model, material, renderType, hitboxType == HitboxType::NONE ? PhysicsType::NONE : PhysicsType::STATIC, hitboxType) {
+Object::Object(World& world, Model* model, Material* material, RenderType renderType, HitboxType hitboxType) :
+	Object(world, model, material, renderType, hitboxType == HitboxType::NONE ? PhysicsType::NONE : PhysicsType::STATIC, hitboxType) {
 	
 }
 
@@ -19,10 +34,14 @@ void Object::update(float timeDelta){
 	// Update sound source position
 	updateSoundSource();
 
-	// Reset hitbox cache for next frame
-	hitboxCached_ = false;
+	// Clear contacts
+	contacts_.clear();
 }
 
+
+void Object::deleteObject(){
+	deleted_ = true;
+}
 
 void Object::updateSoundSource(){
 	if(hasSoundSource())
@@ -122,7 +141,7 @@ void Object::setRotation(float x, float y, float z){
 }
 
 void Object::rotate(const Quaternion& rotation){
-	rotation_ *= rotation;
+	rotation_ = rotation * rotation_;
 	rotation_.normalize();
 }
 
@@ -150,6 +169,71 @@ void Object::setModel(Model* model){
 void Object::setMaterial(Material* material){
 	material_ = material;
 }
+
+void Object::setRenderType(RenderType renderType){
+	renderType_ = renderType;
+}
+
+void Object::setPhysicsType(PhysicsType physicsType){
+	physicsType_ = physicsType;
+}
+
+void Object::setHitboxType(HitboxType hitboxType){
+	hitboxType_ = hitboxType;
+}
+
+bool Object::cacheTransformedHitbox(){
+
+	// Skip if hitbox has already been cached
+	if(hitboxCached_ || colliders_.empty())
+		return false;
+
+	for(Collider& collider : colliders_){
+
+		Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
+
+		// For each vertex
+		for(int i = 0; i < collider.hitbox->vertices.size(); i++){
+
+			Vec3& v = collider.hitboxTransformed.vertices[i];
+			v = collider.hitbox->vertices[i];
+
+			// Scale
+			v *= getScale();
+
+			// Rotate
+			v = rotation * v;
+
+			// Translate
+			v += getTPosition();
+		}
+
+		// For each face
+		for(int i = 0; i < collider.hitbox->faces.size(); i++){
+
+			SATFace& f = collider.hitboxTransformed.faces[i];
+			f = collider.hitbox->faces[i];
+
+			// Scale
+			f.position *= getScale();
+
+			// Rotate
+			f.position = rotation * f.position;
+			f.normal = rotation * f.normal;
+
+			// Translate
+			f.position += getTPosition();
+		}
+	}
+
+	hitboxCached_ = true;
+	return true;
+}
+
+void Object::addContact(ContactInfo contact){
+	contacts_.push_back(contact);
+}
+
 
 
 const Vec3& Object::getPosition() const{
@@ -192,35 +276,8 @@ HitboxType Object::getHitboxType() const{
 	return hitboxType_;
 }
 
-const vector<Vec3>& Object::getTransformedHitbox(){
-
-	// If hitbox has not been calculated for this frame, do so
-	if(!hitboxCached_ && model_ != nullptr){
-
-		transformedHitbox_.clear();
-
-		Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
-
-		// For each vertex
-		for(int i = 0; i < model_->hitbox.size(); i++){
-			Vec3 v = model_->hitbox[i];
-
-			// Scale
-			v = v.multiplyElementWise(getScale());
-
-			// Rotate
-			v = rotation * v;
-
-			// Translate
-			v += getTPosition();
-
-			transformedHitbox_.push_back(v);
-		}
-
-		hitboxCached_ = true;
-	}
-
-	return transformedHitbox_;
+const vector<Collider>& Object::getColliders() const{
+	return colliders_;
 }
 
 const Hitbox& Object::getTransformedHitboxSAT(){
@@ -276,10 +333,19 @@ const Hitbox& Object::getTransformedHitboxSAT(){
 	return transformedHitboxSAT_;
 }
 
+
+bool Object::isDeleted() const{
+	return deleted_;
+}
+
 ALuint Object::getSoundSource() const{
 	return soundSource_;
 }
 
 bool Object::hasSoundSource() const{
 	return soundSource_ != -1;
+}
+
+const vector<ContactInfo>& Object::getContacts() const{
+	return contacts_;
 }

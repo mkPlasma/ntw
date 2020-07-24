@@ -14,6 +14,7 @@ void ntw::generateHitbox(Model* model){
 	// TODO: add case for predefined hitbox later
 	vector<float>& vertices = model->vertices;
 
+
 	// Keep track of triangles to merge coplanar faces
 	struct Triangle{
 		Vec3 v1;
@@ -98,24 +99,6 @@ void ntw::generateHitbox(Model* model){
 					else if(v2index == v1index - 1)		face.insert(v1index, u);
 				}
 
-				
-				/*
-				// Add triangle vertices to face if they are unique
-				for(int k = 0; k < 3; k++){
-					Vec3& v = k == 0 ? t.v1 : k == 1 ? t.v2 : t.v3;
-
-					// If not unique, go to next vertex
-					for(Vec3& v2 : face)
-						if(v.equalsWithinThreshold(v2, 0.0001f))
-							goto vertexLoop;
-
-					// If unique, add to face
-					face.push_back(v);
-
-				vertexLoop:;
-				}
-				*/
-
 				// Merge done, move to next triangle
 				goto triLoop;
 			}
@@ -128,8 +111,9 @@ void ntw::generateHitbox(Model* model){
 	triLoop:;
 	}
 
-
 	// Create hitbox data
+	Hitbox hitbox;
+
 	for(const vector<Vec3>& face : faces){
 
 		// Ignore faces with less than 3 vertices
@@ -144,8 +128,8 @@ void ntw::generateHitbox(Model* model){
 
 		// Add all unique vertices
 		for(int i = 0; i < numVerts; i++)
-			if(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[i]) == model->hitboxSAT.vertices.end())
-				model->hitboxSAT.vertices.push_back(face[i]);
+			if(std::find(hitbox.vertices.begin(), hitbox.vertices.end(), face[i]) == hitbox.vertices.end())
+				hitbox.vertices.push_back(face[i]);
 
 
 		// Add half-edges
@@ -159,17 +143,17 @@ void ntw::generateHitbox(Model* model){
 			j = j >= numVerts ? 0 : j;
 
 			// Get vertex indices
-			int v1 = (int)(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[i]) - model->hitboxSAT.vertices.begin());
-			int v2 = (int)(std::find(model->hitboxSAT.vertices.begin(), model->hitboxSAT.vertices.end(), face[j]) - model->hitboxSAT.vertices.begin());
+			int v1 = (int)(std::find(hitbox.vertices.begin(), hitbox.vertices.end(), face[i]) - hitbox.vertices.begin());
+			int v2 = (int)(std::find(hitbox.vertices.begin(), hitbox.vertices.end(), face[j]) - hitbox.vertices.begin());
 
 			// Create half-edge, setting main face to current face
-			SATHalfEdge e = {v1, v2, (int)model->hitboxSAT.faces.size(), -1};
+			SATHalfEdge e = {v1, v2, (int)hitbox.faces.size(), -1};
 
 
 			// If an opposing half-edge already exists, don't add this one
-			for(int k = 0; k < model->hitboxSAT.edges.size(); k++){
+			for(int k = 0; k < hitbox.edges.size(); k++){
 
-				const SATHalfEdge& e2 = model->hitboxSAT.edges[k];
+				const SATHalfEdge& e2 = hitbox.edges[k];
 
 				if((e.v1 == e2.v1 && e.v2 == e2.v2) || (e.v1 == e2.v2 && e.v2 == e2.v1)){
 
@@ -210,7 +194,7 @@ void ntw::generateHitbox(Model* model){
 				ntw::warning("Hitbox edge has no secondary face, is there a one-sided face or gap in the model?");
 
 			// Add half-edge
-			model->hitboxSAT.edges.push_back(e);
+			hitbox.edges.push_back(e);
 			
 		edgeLoop:;
 		}
@@ -226,17 +210,23 @@ void ntw::generateHitbox(Model* model){
 
 
 		// Add face
-		model->hitboxSAT.faces.push_back(satFace);
+		hitbox.faces.push_back(satFace);
 	}
 
 	// Add edge indices to each face
-	for(int i = 0; i < model->hitboxSAT.edges.size(); i++){
-		int f1 = model->hitboxSAT.edges[i].f1;
-		int f2 = model->hitboxSAT.edges[i].f2;
+	for(int i = 0; i < hitbox.edges.size(); i++){
+		int f1 = hitbox.edges[i].f1;
+		int f2 = hitbox.edges[i].f2;
 		
-		if(f1 != -1)	model->hitboxSAT.faces[f1].edges.push_back(i);
-		if(f2 != -1)	model->hitboxSAT.faces[f2].edges.push_back(i);
+		if(f1 != -1)	hitbox.faces[f1].edges.push_back(i);
+		if(f2 != -1)	hitbox.faces[f2].edges.push_back(i);
 	}
+
+	// Add collider hitbox
+	model->colliderHitboxes.push_back(hitbox);
+
+	// TEMPORARY
+	model->hitboxSAT = hitbox;
 }
 
 void ntw::setModelProperties(Model* model){

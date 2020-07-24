@@ -98,5 +98,5 @@ struct ContactManifold{
 // Info on collisions given to objects
 struct ContactInfo{
 	Object* object;
-	Vec3& normal;
+	Vec3 normal;
 };

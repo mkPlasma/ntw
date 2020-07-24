@@ -15,357 +15,157 @@ Renderer::Renderer(GraphicsOptions& gOptions) : gOptions_(gOptions) {
 void Renderer::init(){
 
 	// Load shader programs
-	shaderBasic_ = ShaderProgram();
-	shaderBasic_.compile("basic.vs", "basic.fs");
-	shaderBasic_.link();
-	shaderBasic_.use();
+	screenShader_.compile("screen.vs", "screen.fs");
+	screenShader_.link();
 
-	shaderWireframe_ = ShaderProgram();
-	shaderWireframe_.compile("wireframe.vs", "wireframe.fs");
-	shaderWireframe_.link();
+	ShaderProgram shaderStandard = ShaderProgram("standard");
+	shaderStandard.compile("standard.vs", "standard.fs");
+	shaderStandard.link();
+	shaderPrograms_.emplace(shaderStandard.getName(), shaderStandard);
 
-	timeUniformLoc_		= glGetUniformLocation(shaderBasic_.getProgram(), "time");
-	viewProjUniformLoc_	= glGetUniformLocation(shaderBasic_.getProgram(), "viewProj");
-	viewPosUniformLoc_	= glGetUniformLocation(shaderBasic_.getProgram(), "viewPos");
-	modelUniformLoc_	= glGetUniformLocation(shaderBasic_.getProgram(), "model");
+	ShaderProgram shaderPortal = ShaderProgram("portal");
+	shaderPortal.compile("portal.vs", "portal.fs");
+	shaderPortal.link();
+	shaderPrograms_.emplace(shaderPortal.getName(), shaderPortal);
+
+	ShaderProgram shaderWireframe = ShaderProgram("wireframe");
+	shaderWireframe.compile("wireframe.vs", "wireframe.fs");
+	shaderWireframe.link();
+	shaderPrograms_.emplace(shaderWireframe.getName(), shaderWireframe);
+
+
+	// Screen quad
+	const float vertices[] = {
+		0, 0,
+		0, 1,
+		1, 0,
+
+		0, 1,
+		1, 1,
+		1, 0
+	};
+
+	glGenVertexArrays(1, &screenVAO);
+	glBindVertexArray(screenVAO);
+
+	// Create vertex buffer
+	glGenBuffers(1, &screenVBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, screenVBuffer);
+
+	// Write data
+	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), vertices, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+
+	// Create screen framebuffer
+	fbScreen_ = createFrameBuffer(gOptions_.resolutionX, gOptions_.resolutionY);
 }
 
 void Renderer::destroy(){
-	shaderBasic_.destroy();
-	shaderWireframe_.destroy();
+
+	// Destroy shader programs
+	for(auto i = shaderPrograms_.begin(); i != shaderPrograms_.end(); i++)
+		i->second.destroy();
+
+	shaderPrograms_.clear();
+
+	// Delete screen quad buffers
+	glDeleteBuffers(1, &screenVBuffer);
+	glDeleteVertexArrays(1, &screenVAO);
+
+	// Delete screen framebuffer
+	glDeleteTextures(1, &fbScreen_.textureId);
+	glDeleteRenderbuffers(1, &fbScreen_.depthBufferId);
+	glDeleteFramebuffers(1, &fbScreen_.id);
 }
 
-void Renderer::initWorldRendering(World* world){
+Renderer::Framebuffer Renderer::createFrameBuffer(int width, int height, bool useMipMap, bool useDepthBuffer, int msaaSamples){
 
-	// Set world
-	world_ = world;
+	// Create and bind framebuffer
+	GLuint bufferId;
+	glGenFramebuffers(1, &bufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, bufferId);
 
-	// Batch objects and write data
-	vector<Object*>& objects = world->getObjects();
-	objectBatches_.clear();
+	// Create texture
+	GLuint textureId;
+	int texType = msaaSamples == -1 ? GL_TEXTURE_2D : GL_TEXTURE_2D_MULTISAMPLE;
 
-	// Batch static objects according to material
-	// Batches for dynamic objects will contain only one object
-	for(auto obj = objects.begin(); obj != objects.end(); obj++){
+	glGenTextures(1, &textureId);
+	glBindTexture(texType, textureId);
 
-		RenderType type = (*obj)->getRenderType();
+	if(msaaSamples == -1){
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(texType, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(texType, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+	else
+		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaaSamples, GL_RGB, width, height, GL_TRUE);
 
-		if(type == RenderType::NONE)
-			continue;
+	//glTexParameteri(texType, GL_GENERATE_MIPMAP, useMipMap ? GL_TRUE : GL_FALSE);
 
-		bool added = false;
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texType, textureId, 0);
+	glBindTexture(texType, 0);
 
-		// For static objects only:
-		// If a batch for this texture already exists, add the object to it
-		if(type == RenderType::STATIC){
-			for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
-				if((*batch).renderType == type && (*batch).material == (*obj)->getMaterial()){
-					(*batch).objects.push_back(*obj);
-					added = true;
-					break;
-				}
-			}
-		}
 
-		// If not, create a new batch
-		if(!added){
-			ObjectBatch b;
-			b.renderType = type;
-			b.material = (*obj)->getMaterial();
-			b.objects.push_back(*obj);
+	// Create depth buffer
+	GLuint depthBufferId = -1;
 
-			objectBatches_.push_back(b);
-		}
+	if(useDepthBuffer){
+		glGenRenderbuffers(1, &depthBufferId);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthBufferId);
+
+		if(msaaSamples == -1)
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+		else
+			glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaaSamples, GL_DEPTH_COMPONENT, width, height);
+
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferId);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	}
 
+	// Error 
+	auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		ntw::error("Framebuffer failed to generate completely!");
 
-	for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		// Merge all vertex and texture coordinate data
-		vector<float> vertices;
-		vector<float> normals;
-		vector<float> texCoords;
-		int numVertices = 0;
-
-		for(auto obj = (*batch).objects.begin(); obj != (*batch).objects.end(); obj++){
-			// For static objects, get temporary model with object transformations applied
-			// For dynamic objects, transformations will be applied in the shader, so get standard model
-			Model m = (*batch).renderType == RenderType::STATIC ? ntw::getTransformedObjectModel(**obj) : *(*obj)->getModel();
-
-			// Copy data
-			std::copy(m.vertices.begin(),	m.vertices.end(),	std::back_inserter(vertices));
-			std::copy(m.normals.begin(),	m.normals.end(),	std::back_inserter(normals));
-			std::copy(m.texCoords.begin(),	m.texCoords.end(),	std::back_inserter(texCoords));
-			numVertices += m.numVertices;
-		}
-
-
-		// Create VAO
-		GLuint vao;
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-
-
-		// Create vertex buffer
-		GLuint vBuffer;
-		glGenBuffers(1, &vBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-
-		// Write data
-		glBufferData(GL_ARRAY_BUFFER, numVertices * 3 * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-
-		// Create normals buffer
-		GLuint nmBuffer;
-		glGenBuffers(1, &nmBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, nmBuffer);
-
-		// Write data
-		glBufferData(GL_ARRAY_BUFFER, numVertices * 3 * sizeof(float), normals.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-
-		// Create texture coordinate buffer
-		GLuint tcBuffer;
-		glGenBuffers(1, &tcBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, tcBuffer);
-
-		// Write data
-		glBufferData(GL_ARRAY_BUFFER, numVertices * 2 * sizeof(float), texCoords.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-
-		// Store VAO ID and info
-		(*batch).vaoID = vao;
-		(*batch).numVertices = numVertices;
-		(*batch).bufferIDs = {vBuffer, nmBuffer, tcBuffer};
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	return {bufferId, textureId, depthBufferId};
 }
 
-void Renderer::cleanupWorldRendering(){
+void Renderer::render(int time){
 
-	// Delete object VAOs
-	for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
+	screenShader_.use();
+	glUniform1i(screenShader_.getUniformLocation("time"), time);
 
-		// Delete buffers
-		vector<unsigned int>& buffers = (*batch).bufferIDs;
-
-		for(auto j = buffers.begin(); j != buffers.end(); j++)
-			glDeleteBuffers(1, (const GLuint*)&(*j));
-
-		glDeleteVertexArrays(1, (const GLuint*)&(*batch).vaoID);
-	}
-
-	objectBatches_.clear();
-}
-
-void Renderer::renderWorld(int time, float physTimeDelta){
-
-	// World camera
-	Camera& camera = world_->getCamera();
-
-	// View and projection matrix
-	Matrix viewProj;
-
-	// View location, swap y and z axes and negate y
-	viewProj.translate(-camera.position[0], -camera.position[2], camera.position[1]);
-
-	// Yaw then pitch rotation
-	viewProj.rotate(0, -camera.yaw, 0);
-	viewProj.rotate(-camera.pitch, 0, 0);
-	viewProj.transpose();
-
-	// Apply projection matrix
-	viewProj *= Matrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, 0.01f, 1000);
-
-	// Write time and view position uniforms
-	shaderBasic_.use();
-	glUniform1i(timeUniformLoc_, time);
-	glUniformMatrix4fv(viewProjUniformLoc_, 1, GL_FALSE, viewProj.getValuesPtr());
-	glUniform3f(viewPosUniformLoc_, camera.position[0], camera.position[1], camera.position[2]);
-
-	// Enable properties
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
+	// Blit world framebuffer to screen framebuffer
 	glEnable(GL_MULTISAMPLE);
 
-	// Render objects
-	for(auto batch = objectBatches_.begin(); batch != objectBatches_.end(); batch++){
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbWorld_.id);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbScreen_.id);
+	glBlitFramebuffer(0, 0, gOptions_.resolutionX, gOptions_.resolutionY, 0, 0, gOptions_.resolutionX, gOptions_.resolutionY, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
-		// Add model matrix to MVP matrix if dynamic
-		if((*batch).renderType == RenderType::DYNAMIC){
-			Object* obj = (*batch).objects[0];
-
-			Vec3 position = obj->getPosition();
-			Quaternion rotation = obj->getRotation();
-
-			// Rigid body physics interpolation
-			if(obj->getPhysicsType() == PhysicsType::DYNAMIC){
-				position += ((PhysicsObject*)obj)->getVelocity() * physTimeDelta;
-
-				Vec3 angularVelocity = ((PhysicsObject*)obj)->getAngularVelocity();
-				float angVelMag = angularVelocity.magnitude();
-				if(angVelMag != 0)
-					rotation.rotate(angularVelocity, angVelMag * physTimeDelta);
-			}
-
-			Matrix model;
-			model.scale(obj->getScale());
-			model.rotate(rotation);
-			model.translate(position);
-			model.transpose();
-
-			glUniformMatrix4fv(modelUniformLoc_, 1, GL_FALSE, model.getValuesPtr());
-		}
-
-		// For static objects, do not use an additional model matrix
-		else
-			glUniformMatrix4fv(modelUniformLoc_, 1, GL_FALSE, identity_.getValuesPtr());
-
-		// Bind texture
-		glBindTexture(GL_TEXTURE_2D, (*batch).material->texture);
-		
-		// Select VAO
-		glBindVertexArray((*batch).vaoID);
-
-		// Enable buffers
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-
-		// Render
-		glDrawArrays(GL_TRIANGLES, 0, (*batch).numVertices);
-
-		// Disable buffers
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-		glDisableVertexAttribArray(2);
-	}
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBindVertexArray(0);
-
-	// Disable properties
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
 	glDisable(GL_MULTISAMPLE);
 
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT);
 
+	// Set screen quad texture
+	glBindTexture(GL_TEXTURE_2D, fbScreen_.textureId);
 
-
-
-
-
-
-	// TEMPORARY!
-	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
-
-	shaderWireframe_.use();
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	//glEnable(GL_DEPTH_TEST);
-	glUniformMatrix4fv(glGetUniformLocation(shaderWireframe_.getProgram(), "viewProj"), 1, GL_FALSE, viewProj.getValuesPtr());
-
-	vector<float> verts;
-	int numContacts = 0;
-
-	// For each object
-	for(auto i = collisions.begin(); i != collisions.end(); i++){
-		for(auto j = (*i).contacts.begin(); j != (*i).contacts.end(); j++){
-
-			/*
-			Object* obj1 = (*i).objects.object1;
-			Object* obj2 = (*i).objects.object2;
-			bool obj1Dynamic = obj1->getPhysicsType() == PhysicsType::DYNAMIC;
-			bool obj2Dynamic = obj2->getPhysicsType() == PhysicsType::DYNAMIC;
-
-			Matrix obj1Rotation = Matrix(3, 3, true).rotate(
-				obj1Dynamic ? ((PhysicsObject*)obj1)->getTRotation() : obj1->getRotation()
-			);
-			Matrix obj2Rotation = Matrix(3, 3, true).rotate(
-				obj2Dynamic ? ((PhysicsObject*)obj2)->getTRotation() : obj2->getRotation()
-			);
-
-			// Get updated global contact points
-			Vec3 obj1ContactGlobalU = (*j).obj1ContactLocal;
-			Vec3 obj2ContactGlobalU = (*j).obj2ContactLocal;
-
-			// Rotate
-			obj1ContactGlobalU = obj1Rotation * obj1ContactGlobalU;
-			obj2ContactGlobalU = obj2Rotation * obj2ContactGlobalU;
-
-			// Translate
-			obj1ContactGlobalU += obj1Dynamic ? ((PhysicsObject*)obj1)->getTPosition() : obj1->getPosition();
-			obj2ContactGlobalU += obj2Dynamic ? ((PhysicsObject*)obj2)->getTPosition() : obj2->getPosition();
-			//*/
-
-			verts.push_back((*i).objects.object1->getPosition()[0] + (*j).obj1ContactVector[0]);
-			verts.push_back((*i).objects.object1->getPosition()[1] + (*j).obj1ContactVector[1]);
-			verts.push_back((*i).objects.object1->getPosition()[2] + (*j).obj1ContactVector[2]);
-			numContacts++;
-		}
-	}
-	for(auto i = collisions.begin(); i != collisions.end(); i++){
-		for(auto j = (*i).contacts.begin(); j != (*i).contacts.end(); j++){
-			verts.push_back((*j).obj2ContactGlobal[0]);
-			verts.push_back((*j).obj2ContactGlobal[1]);
-			verts.push_back((*j).obj2ContactGlobal[2]);
-		}
-	}
-	for(auto i = collisions.begin(); i != collisions.end(); i++){
-		for(auto j = (*i).contacts.begin(); j != (*i).contacts.end(); j++){
-			verts.push_back((*j).obj2ContactGlobal[0]);
-			verts.push_back((*j).obj2ContactGlobal[1]);
-			verts.push_back((*j).obj2ContactGlobal[2]);
-			verts.push_back((*j).obj2ContactGlobal[0] + (*j).normal[0] / 10);
-			verts.push_back((*j).obj2ContactGlobal[1] + (*j).normal[1] / 10);
-			verts.push_back((*j).obj2ContactGlobal[2] + (*j).normal[2] / 10);
-		}
-	}
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	// Create vertex buffer
-	GLuint vBuffer;
-	glGenBuffers(1, &vBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-
-	// Write data
-	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	// Enable buffers
-	glEnableVertexAttribArray(0);
+	glBindVertexArray(screenVAO);
 
 	// Render
-	glPointSize(20);
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 0);
-	glDrawArrays(GL_POINTS, 0, numContacts);
-
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0, 1);
-	glDrawArrays(GL_POINTS, numContacts, numContacts);
-
-	glLineWidth(15);
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 1, 0);
-	glDrawArrays(GL_LINES, numContacts * 2, numContacts * 2);
-
-	// Disable buffers
+	glEnableVertexAttribArray(0);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindVertexArray(0);
-	glDisable(GL_DEPTH_TEST);
-
-	// Delete VAO and buffer
-	glDeleteBuffers(1, &vBuffer);
-	glDeleteVertexArrays(1, &vao);
-
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
