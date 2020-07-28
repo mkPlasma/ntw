@@ -1,6 +1,7 @@
 #pragma once
 
 #include"math/vec3.h"
+#include"math/matrix.h"
 
 
 struct Camera{
@@ -9,4 +10,5 @@ struct Camera{
 	float yaw;
 	float pitch;
 	float roll;
+	Matrix rotationMatrix;
 };

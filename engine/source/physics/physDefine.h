@@ -2,7 +2,7 @@
 
 
 // Rigid body physics update timing
-#define NTW_PHYS_UPDATES_PER_SECOND 50
+#define NTW_PHYS_UPDATES_PER_SECOND 60
 #define NTW_PHYS_UPDATE_TIME_MICRO	(1000000 / NTW_PHYS_UPDATES_PER_SECOND)
 
 // Rigid body physics time delta
@@ -10,7 +10,7 @@
 
 
 // Margin to enlarge parent AABBs in AABB tree by
-#define NTW_AABB_MARGIN 10;
+#define NTW_AABB_MARGIN 0.2f;
 
 
 // Maximum number of constraint resolution iterations for rigid bodies

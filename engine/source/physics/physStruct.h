@@ -9,25 +9,7 @@
 
 #include"objects/object.h"
 
-
-// Interval for AABB collisions
-struct CollisionInterval{
-	float position;
-	bool start;
-	Object* object;
-
-	bool operator<(const CollisionInterval& a) const{
-		return (position < a.position) || (position == a.position && object == a.object && start && !a.start);
-	}
-
-	bool operator<=(const CollisionInterval& a) const{
-		return position <= a.position;
-	}
-
-	bool operator==(const CollisionInterval& a) const{
-		return position == a.position;
-	}
-};
+class Portal;
 
 
 // Pair of objects for collisions
@@ -99,4 +81,29 @@ struct ContactManifold{
 struct ContactInfo{
 	Object* object;
 	Vec3 normal;
+};
+
+
+// Object/Portal pair for portal collisions
+struct ObjectPortalPair{
+	Object* object;
+	Portal* portal;
+
+	bool operator==(const ObjectPortalPair& a) const{
+		return object == a.object && portal == a.portal;
+	}
+
+	// Hash for unordered_map
+	size_t operator()(const ObjectPortalPair& a) const{
+		return reinterpret_cast<size_t>(object) + reinterpret_cast<size_t>(portal);
+	}
+};
+
+
+// Current portal collision info
+struct PortalCollisionInfo{
+	ObjectPortalPair objectPortalPair;
+	bool objectInFront;
+	bool updated;
+	bool withPlayer;
 };

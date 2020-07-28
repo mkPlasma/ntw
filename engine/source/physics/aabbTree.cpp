@@ -1,6 +1,7 @@
 #include"aabbtree.h"
 
 #include"physics/physDefine.h"
+#include"objects/portal.h"
 #include<algorithm>
 #include<limits>
 
@@ -9,11 +10,30 @@ using std::max;
 
 
 void AABBTree::update(){
-	if(root_)
-		updateNode(root_);
+
+	if(!root_)
+		return;
+
+	// Clear invalid nodes
+	invalid_.clear();
+
+	// Update tree
+	updateNode(root_);
+
+	// Re-insert invaild nodes
+	for(Node* node : invalid_){
+
+		// Update large AABB
+		node->aabbMargin.lowerBound = node->aabb.lowerBound - NTW_AABB_MARGIN;
+		node->aabbMargin.upperBound = node->aabb.upperBound + NTW_AABB_MARGIN;
+
+		// Remove and add again
+		removeNode(node, false);
+		addNode(node, root_);
+	}
 }
 
-AABBTree::Node* AABBTree::updateNode(Node* node){
+void AABBTree::updateNode(Node* node){
 
 	// Node is leaf
 	if(node->isLeaf()){
@@ -22,7 +42,7 @@ AABBTree::Node* AABBTree::updateNode(Node* node){
 		if(node->aabb.collider->parent && node->aabb.collider->parent->cacheTransformedHitbox()){
 			updateAABB(node);
 
-			// If AABB has moved outside margin, remove and re-insert it
+			// If AABB has moved outside margin, mark it invalid
 			if(	node->aabb.lowerBound[0] < node->aabbMargin.lowerBound[0] ||
 				node->aabb.lowerBound[1] < node->aabbMargin.lowerBound[1] ||
 				node->aabb.lowerBound[2] < node->aabbMargin.lowerBound[2] ||
@@ -30,32 +50,16 @@ AABBTree::Node* AABBTree::updateNode(Node* node){
 				node->aabb.upperBound[1] > node->aabbMargin.upperBound[1] ||
 				node->aabb.upperBound[2] > node->aabbMargin.upperBound[2]){
 
-				// Update large AABB
-				node->aabbMargin.lowerBound = node->aabb.lowerBound - NTW_AABB_MARGIN;
-				node->aabbMargin.upperBound = node->aabb.upperBound + NTW_AABB_MARGIN;
-
-				// Remove and add again
-				Node* sibling = removeNode(node, false);
-				addNode(node, root_);
-
-				// Continue updating from sibling node
-				return sibling;
+				invalid_.push_back(node);
 			}
 		}
 	}
 
 	// Node is branch, update children
 	else{
-		// If a child leaf node is removed and replaced, update function will return new node to start updating from
-		Node* n = updateNode(node->child1);
-
-		if(n == nullptr)
-			n = updateNode(node->child2);
-		else
-			updateNode(n);
+		updateNode(node->child1);
+		updateNode(node->child2);
 	}
-
-	return nullptr;
 }
 
 void AABBTree::updateAABB(Node* node){
@@ -64,12 +68,18 @@ void AABBTree::updateAABB(Node* node){
 
 	// Leaf node, update based on AABB's collider
 	if(node->isLeaf()){
+
 		// Min/max coordinate values
 		aabb.lowerBound = std::numeric_limits<float>::max();
 		aabb.upperBound = -aabb.lowerBound;
 
+		// Get transformed collider vertices or portal vertices
+		const vector<Vec3>& vertices =	aabb.collider->parent ? aabb.collider->hitboxTransformed.vertices :
+										aabb.collider->portal ? aabb.collider->portal->getVertices() :
+										aabb.collider->hitbox->vertices;
+
 		// Get bounding coordinates
-		for(const Vec3& v : aabb.collider->hitboxTransformed.vertices){
+		for(const Vec3& v : vertices){
 			aabb.lowerBound[0] = min(aabb.lowerBound[0], v[0]);
 			aabb.lowerBound[1] = min(aabb.lowerBound[1], v[1]);
 			aabb.lowerBound[2] = min(aabb.lowerBound[2], v[2]);
@@ -96,6 +106,35 @@ void AABBTree::updateAABB(Node* node){
 	}
 }
 
+void AABBTree::clear(){
+	
+	if(!root_)
+		return;
+
+	if(root_->isLeaf()){
+		delete root_;
+		root_ = nullptr;
+	}
+
+	// Recursively delete nodes
+	else
+		clear(root_);
+}
+
+void AABBTree::clear(Node* node){
+
+	// Delete leaf children and recursively clear branch children
+	if(node->child1->isLeaf())
+		delete node->child1;
+	else
+		clear(node->child1);
+
+	if(node->child2->isLeaf())
+		delete node->child2;
+	else
+		clear(node->child2);
+}
+
 
 void AABBTree::add(const Collider* collider){
 
@@ -116,7 +155,8 @@ void AABBTree::add(const Collider* collider){
 
 	// Collider belongs to portal
 	else{
-		// TODO: add this
+		updateAABB(node);
+		node->aabb.isStatic = true;
 	}
 
 	// Set large AABB
@@ -205,7 +245,43 @@ void AABBTree::addNode(Node* node, Node* parent){
 	}
 }
 
-AABBTree::Node* AABBTree::removeNode(Node* node, bool deleteNode){
+void AABBTree::remove(const Collider* collider){
+
+	if(!root_)
+		return;
+
+	// Root node contains collider
+	if(root_->aabb.collider == collider)
+		removeNode(root_);
+
+	// Search for and remove collider node
+	else
+		remove(collider, root_);
+}
+
+void AABBTree::remove(const Collider* collider, Node* node){
+
+	// Check leaf children and recursively check branch children
+	if(node->child1->isLeaf()){
+		if(node->child1->aabb.collider == collider){
+			removeNode(node->child1);
+			return;
+		}
+	}
+	else
+		remove(collider, node->child1);
+
+	if(node->child2->isLeaf()){
+		if(node->child2->aabb.collider == collider){
+			removeNode(node->child2);
+			return;
+		}
+	}
+	else
+		remove(collider, node->child2);
+}
+
+void AABBTree::removeNode(Node* node, bool deleteNode){
 
 	// Node is root
 	if(!node->parent){
@@ -214,7 +290,7 @@ AABBTree::Node* AABBTree::removeNode(Node* node, bool deleteNode){
 		if(deleteNode)
 			delete node;
 
-		return nullptr;
+		return;
 	}
 
 	// Get sibling
@@ -247,8 +323,6 @@ AABBTree::Node* AABBTree::removeNode(Node* node, bool deleteNode){
 		delete node;
 	else
 		node->parent = nullptr;
-
-	return sibling;
 }
 
 
@@ -341,8 +415,4 @@ bool AABBTree::overlapping(AABB* aabb1, AABB* aabb2){
 			return false;
 
 	return true;
-}
-
-AABBTree::Node* AABBTree::getRoot(){
-	return root_;
 }

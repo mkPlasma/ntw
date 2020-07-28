@@ -3,9 +3,13 @@
 #include"objects/modelFunc.h"
 #include"math/mathFunc.h"
 #include"physics/physDefine.h"
+#include<algorithm>
 #include<math.h>
+#include<limits>
 
 using ntw::toRadians;
+using std::min;
+using std::max;
 
 
 void Renderer::initWorldRendering(World* world){
@@ -179,38 +183,35 @@ void Renderer::addObject(Object* object){
 	addObjectToBatchGroups(object);
 }
 
-void Renderer::addPortalBatch(Portal* p){
+void Renderer::addPortalBatch(Portal* portal){
 
-	// Get vertex data
-	const vector<Vec3>& portalVerts = p->getVerts();
+	// Render portal as a cube
+	vector<float> cubeVerts = ntw::getCube().vertices;
 	vector<float> vertices;
 
-	// Add portal vertices as two triangles
-	vertices.push_back(portalVerts[0][0]);
-	vertices.push_back(portalVerts[0][1]);
-	vertices.push_back(portalVerts[0][2]);
-
-	vertices.push_back(portalVerts[1][0]);
-	vertices.push_back(portalVerts[1][1]);
-	vertices.push_back(portalVerts[1][2]);
-
-	vertices.push_back(portalVerts[2][0]);
-	vertices.push_back(portalVerts[2][1]);
-	vertices.push_back(portalVerts[2][2]);
+	// Portal transformations
+	Vec3 size = Vec3(portal->getWidth() / 2, NTW_NEAR_CLIP * 2, portal->getHeight() / 2);
+	Matrix rotation = Matrix(3, 3, true).rotate(portal->getRotation());
 
 
-	vertices.push_back(portalVerts[1][0]);
-	vertices.push_back(portalVerts[1][1]);
-	vertices.push_back(portalVerts[1][2]);
+	// Add vertices
+	for(int i = 0; i < cubeVerts.size(); i += 3){
 
-	vertices.push_back(portalVerts[2][0]);
-	vertices.push_back(portalVerts[2][1]);
-	vertices.push_back(portalVerts[2][2]);
+		// Current vertex
+		Vec3 v = Vec3(cubeVerts[i], cubeVerts[i + 1], cubeVerts[i + 2]);
 
-	vertices.push_back(portalVerts[3][0]);
-	vertices.push_back(portalVerts[3][1]);
-	vertices.push_back(portalVerts[3][2]);
+		v *= size;
+		v = rotation * v;
 
+		// Adjust size to fix z-fighting
+		v *= 0.999f;
+
+		v += portal->getPosition();
+
+		vertices.push_back(v[0]);
+		vertices.push_back(v[1]);
+		vertices.push_back(v[2]);
+	}
 
 	// Create VAO
 	GLuint vao;
@@ -224,24 +225,13 @@ void Renderer::addPortalBatch(Portal* p){
 	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
 
 	// Write data
-	glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 
-	// Create normals buffer
-	/*
-	GLuint nmBuffer;
-	glGenBuffers(1, &nmBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, nmBuffer);
-
-	// Write data
-	glBufferData(GL_ARRAY_BUFFER, numVertices * 3 * sizeof(float), normals.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	*/
-
 	// Store VAO ID and info
 	PortalBatch batch;
-	batch.portal = p;
+	batch.portal = portal;
 	batch.vaoId = vao;
 	batch.bufferIds = {vBuffer/*, nmBuffer*/};
 
@@ -319,28 +309,51 @@ Matrix Renderer::getViewProjSub(const Camera& camera){
 	Matrix viewProj;
 
 	// View location, swap y and z axes and negate y
-	viewProj.translate(-camera.position[0], -camera.position[2], camera.position[1]);
+	viewProj.translate(-camera.position[0], -camera.position[1], -camera.position[2]);
 
-	// Yaw then pitch rotation
-	viewProj.rotate(0, 90 - camera.yaw, 0);
+	// Initial orientation
+	viewProj = camera.rotationMatrix * viewProj;
+
+	// Rotation
+	viewProj.rotate(-90, 90 - camera.yaw, 0);
 	viewProj.rotate(-camera.pitch, 0, 0);
-	viewProj.rotate(0, 0, -camera.roll);
+
 	viewProj.transpose();
 
 	return viewProj;
 }
-
-#include<functional>
-#include<iostream>
-using std::cout;
-using std::endl;
 
 void Renderer::renderWorld(int time, float physTimeDelta){
 
 	// Bind world framebuffer and render
 	glBindFramebuffer(GL_FRAMEBUFFER, fbWorld_.id);
 
-	const Camera& camera = world_->getCamera();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Get camera and apply physics interpolation
+	Camera camera = world_->getCamera();
+	camera.position += camera.velocity * physTimeDelta;
+
+	// Check if interpolation has moved camera past portal
+	auto portalCollisions = world_->getPhysicsEngine().getPortalCollisions();
+
+	for(auto& i : portalCollisions){
+		PortalCollisionInfo& info = i.second;
+
+		// Only portal collisions with player affect camera
+		if(info.withPlayer){
+			Portal* portal = info.objectPortalPair.portal;
+			bool cameraInFront = portal->isPointInFront(camera.position);
+
+			// Camera moved past portal, teleport it and add rotation matrix
+			if(info.objectInFront ^ cameraInFront){
+				camera.position = portal->getTransformedVector(camera.position);
+				camera.rotationMatrix = portal->getRotationMatrix().getTranspose() * camera.rotationMatrix;
+			}
+		}
+	}
+
+
 	Matrix viewProj = getViewProj(camera);
 	renderWorldSub(camera, viewProj, time, physTimeDelta);
 
@@ -349,44 +362,63 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 	//Matrix viewProjTranspose = viewProj.getTranspose();
 
 	for(const PortalBatch& batch : portalBatches_){
-		visiblePortalBatches.push_back(batch);
-		/*
-		const vector<Vec3>& verts = batch.portal->getVerts();
+
+		const vector<Vec3> verts = batch.portal->getVertices();
+
+		// Bounds for secondary check
+		Vec3 lowerBound = Vec3(std::numeric_limits<float>::max());
+		Vec3 upperBound = -lowerBound;
 
 		// Project each of the portal's vertices and check if it is visible
 		for(const Vec3& vertex : verts){
 
 			// Get vertex and apply projection
-			Matrix v = Matrix(4, 1);
+			Matrix v = Matrix(1, 4);
 			v.set(0, 0, vertex[0]);
-			v.set(1, 0, vertex[1]);
-			v.set(2, 0, vertex[2]);
-			v.set(3, 0, 1);
-			v = viewProj * v;
+			v.set(0, 1, vertex[1]);
+			v.set(0, 2, vertex[2]);
+			v.set(0, 3, 1);
+			v *= viewProj;
 
 			// Normalize
-			float w = v.get(3, 0);
+			float w = v.get(0, 3);
 			float xw = v.get(0, 0) / w;
-			float yw = v.get(1, 0) / w;
-			float zw = v.get(2, 0) / w;
-			cout << xw << "\t" << yw << "\t" << zw << endl;
+			float yw = v.get(0, 1) / w;
+			float zw = v.get(0, 2) / w;
 
-			// Visible, add portal to list
-			if(	xw > -1 && xw < 1 &&
-				yw > -1 && yw < 1 &&
-				zw > -1 && zw < 1){
+			// Check vertex visibility
+			if(	xw >= -1 && xw <= 1 &&
+				yw >= -1 && yw <= 1 &&
+				zw >= -1 && zw <= 1){
 
+				// Visible, add portal to list
 				visiblePortalBatches.push_back(batch);
-				break;
+				goto portalLoop;
 			}
+			
+			// Set bounds for secondary check
+			lowerBound[0] = min(lowerBound[0], xw);
+			lowerBound[1] = min(lowerBound[1], yw);
+			lowerBound[2] = min(lowerBound[2], zw);
+
+			upperBound[0] = max(upperBound[0], xw);
+			upperBound[1] = max(upperBound[1], yw);
+			upperBound[2] = max(upperBound[2], zw);
 		}
 
-		//cout << endl;
-		*/
+		// Secondary checks for when vertices are out of view
+		for(int i = 0; i < 3; i++)
+			if(lowerBound[i] > 1 || upperBound[i] < -1)
+				goto portalLoop;
+
+		// Visible
+		visiblePortalBatches.push_back(batch);
+
+	portalLoop:;
 	}
 
 	// Render portals
-	ShaderProgram& shader = shaderPrograms_["portal"];
+	ShaderProgram& portalShader = shaderPrograms_["portal"];
 
 	for(const PortalBatch& batch : visiblePortalBatches){
 
@@ -394,42 +426,45 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 		Portal* portal = batch.portal;
 		Portal* pairedPortal = portal->getPairedPortal();
 
-
-		// Angle difference between two portals
-		Matrix portalRotation = Matrix(3, 3, true).rotate(pairedPortal->getRotation() - portal->getRotation());
-
+		// Set camera position/rotation
 		Camera portalCamera = camera;
-
-		// Set camera position
-		Vec3 cameraVector = portalCamera.position - portal->getPosition();
-		cameraVector = portalRotation * cameraVector;
-
-		portalCamera.position = pairedPortal->getPosition() - cameraVector;
-		portalCamera.position[2] = -portalCamera.position[2];
-
-
-		// Set camera angle
-		Vec3 cameraDirectionVector = -Vec3(camera.yaw, camera.pitch);
-
-		// Rotate by the difference between the portals' rotations
-		cameraDirectionVector = portalRotation * cameraDirectionVector;
-
-		float pitch = -asinf(cameraDirectionVector[2]);
-		float yaw = atan2f(cameraDirectionVector[1], cameraDirectionVector[0]);
-
-		portalCamera.pitch	= ntw::toDegrees(pitch);
-		//portalCamera.roll	= cameraAngle[1];
-		portalCamera.yaw	= ntw::toDegrees(yaw);
+		portalCamera.position = portal->getTransformedVector(camera.position);
+		portalCamera.rotationMatrix = portal->getRotationMatrix().getTranspose() * camera.rotationMatrix;
 
 
 		// Get viewProj matrix with oblique near clipping plane
-		Vec3 normal = pairedPortal->getNormal();
-		Vec3 planeNormal	= Matrix(3, 3, true).rotate(Vec3(0, atan2f(normal[1], normal[0]) - yaw + ntw::toRadians(180), 0), false) * Vec3(0, 0, -1);
-		planeNormal			= Matrix(3, 3, true).rotate(Vec3(-asinf(normal[2]) - pitch, 0, 0), false) * planeNormal;
+		Vec3 planeNormal = portal->getNormal();
 
-		float distance = (pairedPortal->getPosition() - portalCamera.position) * normal;
+		// Rotate portal plane into camera space
+		Matrix cameraRotation = camera.rotationMatrix;
+		cameraRotation.rotate(-90, 90 - camera.yaw, 0);
+		cameraRotation.rotate(-camera.pitch, 0, 0);
+		//cameraRotation.rotate(0, 0, -portalCamera.roll);
 
-		Matrix viewProjPortal = getViewProj(portalCamera, planeNormal, distance);
+		planeNormal = cameraRotation * planeNormal;
+
+		float distance = abs((portal->getPosition() - camera.position) * portal->getNormal());
+		distance -= NTW_NEAR_CLIP * 2;
+		distance = distance < NTW_NEAR_CLIP * 2 ? NTW_NEAR_CLIP * 2 : distance;
+
+		// Get clipped viewProj matrix
+		Matrix viewProjPortal = getViewProj(portalCamera, -planeNormal, -distance);
+
+
+		// Clear portal framebuffer
+		glBindFramebuffer(GL_FRAMEBUFFER, fbWorldPortal_.id);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Blit world framebuffer to portal framebuffer
+		// This is so clipped areas are rendered as the normal world
+		// This fixes rendering glitches while walking through/standing in portals
+		glEnable(GL_MULTISAMPLE);
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbWorld_.id);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbWorldPortal_.id);
+		glBlitFramebuffer(0, 0, gOptions_.resolutionX, gOptions_.resolutionY, 0, 0, gOptions_.resolutionX, gOptions_.resolutionY, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+		glDisable(GL_MULTISAMPLE);
 
 
 		// Render world from pair portal perspective to portal framebuffer
@@ -438,32 +473,25 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 
 		glBindFramebuffer(GL_FRAMEBUFFER, fbWorld_.id);
 
+
+		// Shader uniforms
+		portalShader.use();
+		glUniform1i(portalShader.getUniformLocation("time"), time);
+		glUniformMatrix4fv(portalShader.getUniformLocation("viewProj"), 1, GL_FALSE, viewProj.getValuesPtr());
+
 		// Bind texture
 		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbWorldPortal_.textureId);
-
-
-		shader.use();
-		glUniform1i(shader.getUniformLocation("time"), time);
-		glUniformMatrix4fv(shader.getUniformLocation("viewProj"), 1, GL_FALSE, viewProj.getValuesPtr());
-		glUniform2i(shader.getUniformLocation("screenSize"), gOptions_.resolutionX, gOptions_.resolutionY);
 
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_MULTISAMPLE);
 
-
 		// Select VAO
 		glBindVertexArray(batch.vaoId);
 
-		// Enable buffers
-		glEnableVertexAttribArray(0);
-		//glEnableVertexAttribArray(1);
-
 		// Render
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		// Disable buffers
+		glEnableVertexAttribArray(0);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glDisableVertexAttribArray(0);
-		//glDisableVertexAttribArray(1);
 
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_MULTISAMPLE);
@@ -480,8 +508,6 @@ void Renderer::renderWorldSub(const Camera& camera, int time, float physTimeDelt
 }
 
 void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int time, float physTimeDelta){
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Enable properties
 	glEnable(GL_DEPTH_TEST);
@@ -519,7 +545,7 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 				Quaternion rotation = obj->getRotation();
 
 				// Rigid body physics interpolation
-				if(obj->getPhysicsType() == PhysicsType::DYNAMIC){
+				if(obj->getPhysicsType() == PhysicsType::SIMPLE || obj->getPhysicsType() == PhysicsType::RIGID_BODY){
 					position += ((PhysicsObject*)obj)->getVelocity() * physTimeDelta;
 
 					Vec3 angularVelocity = ((PhysicsObject*)obj)->getAngularVelocity();
@@ -575,11 +601,12 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_MULTISAMPLE);
 
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 
-
-	AABBTree::Node* root = world_->getPhysicsEngine().getRoot();
+	// TEMPORARY!
+	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
 
 	shaderPrograms_["wireframe"].use();
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -587,204 +614,11 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 	glUniformMatrix4fv(shaderPrograms_["wireframe"].getUniformLocation("viewProj"), 1, GL_FALSE, viewProj.getValuesPtr());
 
 	vector<float> verts;
-	vector<float> verts2;
-
-	std::function<void(AABBTree::Node*)> l_addNode = [&](AABBTree::Node* n){
-		if(n->isLeaf()){
-			float lx = n->aabb.lowerBound[0];
-			float ly = n->aabb.lowerBound[1];
-			float lz = n->aabb.lowerBound[2];
-			float ux = n->aabb.upperBound[0];
-			float uy = n->aabb.upperBound[1];
-			float uz = n->aabb.upperBound[2];
-
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(lz);
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(lz);
-
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(lz);
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(lz);
-
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(uz);
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(uz);
-
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(uz);
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(uz);
-
-
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(lz);
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(lz);
-
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(lz);
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(lz);
-
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(uz);
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(uz);
-
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(uz);
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(uz);
-
-
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(lz);
-			verts.push_back(lx);	verts.push_back(ly);	verts.push_back(uz);
-
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(lz);
-			verts.push_back(ux);	verts.push_back(ly);	verts.push_back(uz);
-
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(lz);
-			verts.push_back(lx);	verts.push_back(uy);	verts.push_back(uz);
-
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(lz);
-			verts.push_back(ux);	verts.push_back(uy);	verts.push_back(uz);
-		}
-		else{
-			float lx = n->aabb.lowerBound[0];
-			float ly = n->aabb.lowerBound[1];
-			float lz = n->aabb.lowerBound[2];
-			float ux = n->aabb.upperBound[0];
-			float uy = n->aabb.upperBound[1];
-			float uz = n->aabb.upperBound[2];
-
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(lz);
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(lz);
-
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(lz);
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(lz);
-
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(uz);
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(uz);
-
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(uz);
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(uz);
-
-
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(lz);
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(lz);
-
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(lz);
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(lz);
-
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(uz);
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(uz);
-
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(uz);
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(uz);
-
-
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(lz);
-			verts2.push_back(lx);	verts2.push_back(ly);	verts2.push_back(uz);
-
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(lz);
-			verts2.push_back(ux);	verts2.push_back(ly);	verts2.push_back(uz);
-
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(lz);
-			verts2.push_back(lx);	verts2.push_back(uy);	verts2.push_back(uz);
-
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(lz);
-			verts2.push_back(ux);	verts2.push_back(uy);	verts2.push_back(uz);
-
-			l_addNode(n->child1);
-			l_addNode(n->child2);
-		}
-	};
-
-	l_addNode(root);
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	// Create vertex buffer
-	GLuint vBuffer;
-	glGenBuffers(1, &vBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-
-	// Write data
-	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	// Enable buffers
-	glEnableVertexAttribArray(0);
-
-	// Render
-	glLineWidth(2);
-	glUniform3f(shaderPrograms_["wireframe"].getUniformLocation("wireframeColor"), 1, 0, 0);
-	glDrawArrays(GL_LINES, 0, verts.size() / 3);
-
-	// Disable buffers
-	glDisableVertexAttribArray(0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-
-	// Write data
-	glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-	glBufferData(GL_ARRAY_BUFFER, verts2.size() * sizeof(float), verts2.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-	// Enable buffers
-	glEnableVertexAttribArray(0);
-
-	// Render
-	glLineWidth(2);
-	glUniform3f(shaderPrograms_["wireframe"].getUniformLocation("wireframeColor"), 0, 1, 0);
-	glDrawArrays(GL_LINES, 0, verts2.size() / 3);
-
-	// Disable buffers
-	glDisableVertexAttribArray(0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-	glBindVertexArray(0);
-	glDisable(GL_DEPTH_TEST);
-
-	// Delete VAO and buffer
-	glDeleteBuffers(1, &vBuffer);
-	glDeleteVertexArrays(1, &vao);
-
-
-	// TEMPORARY!
-	/*
-	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
-
-	shaderWireframe_.use();
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	//glEnable(GL_DEPTH_TEST);
-	glUniformMatrix4fv(glGetUniformLocation(shaderWireframe_.getProgram(), "viewProj"), 1, GL_FALSE, viewProj.getValuesPtr());
-
-	vector<float> verts;
 	int numContacts = 0;
 
 	// For each object
 	for(auto i = collisions.begin(); i != collisions.end(); i++){
 		for(auto j = (*i).contacts.begin(); j != (*i).contacts.end(); j++){
-
-			/*
-			Object* obj1 = (*i).objects.object1;
-			Object* obj2 = (*i).objects.object2;
-			bool obj1Dynamic = obj1->getPhysicsType() == PhysicsType::DYNAMIC;
-			bool obj2Dynamic = obj2->getPhysicsType() == PhysicsType::DYNAMIC;
-
-			Matrix obj1Rotation = Matrix(3, 3, true).rotate(
-				obj1Dynamic ? ((PhysicsObject*)obj1)->getTRotation() : obj1->getRotation()
-			);
-			Matrix obj2Rotation = Matrix(3, 3, true).rotate(
-				obj2Dynamic ? ((PhysicsObject*)obj2)->getTRotation() : obj2->getRotation()
-			);
-
-			// Get updated global contact points
-			Vec3 obj1ContactGlobalU = (*j).obj1ContactLocal;
-			Vec3 obj2ContactGlobalU = (*j).obj2ContactLocal;
-
-			// Rotate
-			obj1ContactGlobalU = obj1Rotation * obj1ContactGlobalU;
-			obj2ContactGlobalU = obj2Rotation * obj2ContactGlobalU;
-
-			// Translate
-			obj1ContactGlobalU += obj1Dynamic ? ((PhysicsObject*)obj1)->getTPosition() : obj1->getPosition();
-			obj2ContactGlobalU += obj2Dynamic ? ((PhysicsObject*)obj2)->getTPosition() : obj2->getPosition();
-			//*
-
 			//verts.push_back((*i).objects.object1->getPosition()[0] + (*j).obj1ContactVector[0]);
 			//verts.push_back((*i).objects.object1->getPosition()[1] + (*j).obj1ContactVector[1]);
 			//verts.push_back((*i).objects.object1->getPosition()[2] + (*j).obj1ContactVector[2]);
@@ -831,14 +665,14 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 
 	// Render
 	glPointSize(20);
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 1, 0, 0);
+	glUniform3f(shaderPrograms_["wireframe"].getUniformLocation("wireframeColor"), 1, 0, 0);
 	glDrawArrays(GL_POINTS, 0, numContacts);
 
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 0, 1);
+	glUniform3f(shaderPrograms_["wireframe"].getUniformLocation("wireframeColor"), 0, 0, 1);
 	glDrawArrays(GL_POINTS, numContacts, numContacts);
 
 	glLineWidth(15);
-	glUniform3f(glGetUniformLocation(shaderWireframe_.getProgram(), "wireframeColor"), 0, 1, 0);
+	glUniform3f(shaderPrograms_["wireframe"].getUniformLocation("wireframeColor"), 0, 1, 0);
 	glDrawArrays(GL_LINES, numContacts * 2, numContacts * 2);
 
 	// Disable buffers
@@ -853,5 +687,4 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 	glDeleteVertexArrays(1, &vao);
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	*/
 }

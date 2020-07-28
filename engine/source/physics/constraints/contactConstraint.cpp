@@ -26,8 +26,8 @@ void ContactConstraint::init(){
 	contact_.obj1ContactVector = contact_.obj1ContactGlobal - object1_->getTPosition();
 	contact_.obj2ContactVector = contact_.obj2ContactGlobal - object2_->getTPosition();
 
-	bool obj1Phys = object1_->getPhysicsType() == PhysicsType::DYNAMIC || object1_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
-	bool obj2Phys = object2_->getPhysicsType() == PhysicsType::DYNAMIC || object2_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
+	bool obj1Phys = object1_->getPhysicsType() == PhysicsType::RIGID_BODY || object1_->getPhysicsType() == PhysicsType::SIMPLE;
+	bool obj2Phys = object2_->getPhysicsType() == PhysicsType::RIGID_BODY || object2_->getPhysicsType() == PhysicsType::SIMPLE;
 
 	// Normal constraint
 	Vec3 vel1		= obj1Phys ? ((PhysicsObject*)object1_)->getVelocity()			: Vec3();

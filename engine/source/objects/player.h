@@ -40,20 +40,35 @@ class Player : public PhysicsObject{
     bool heldObjectUseGravity_;
     PhysicsType heldObjectPhysicsType_;
 
+    // Rotation after moving through portal
+    Matrix portalRotation_;
+
+
 public:
     Player(World& world, Model* model, ControlOptions& cOptions, Window& window);
 
-    void updatePlayer(float timeDelta);
+    void updatePlayer(float timeDelta, bool updatePhysics);
 
+    void updateEyePosition();
     void updateLookVectors();
 
 
-    float getYaw();
-    float getPitch();
+    void setYaw(float yaw);
+    void setPitch(float pitch);
 
-    const Vec3& getEyePosition();
+    void addPortalRotation(const Matrix& portalRotation);
 
-    const Vec3& getLookVector();
-    const Vec3& getLookRightVector();
-    const Vec3& getLookUpVector();
+
+    bool isPlayer() const override;
+
+    float getYaw() const;
+    float getPitch() const;
+
+    const Vec3& getEyePosition() const;
+
+    const Vec3& getLookVector() const;
+    const Vec3& getLookRightVector() const;
+    const Vec3& getLookUpVector() const;
+
+    const Matrix& getPortalRotation() const;
 };

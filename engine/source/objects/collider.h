@@ -1,7 +1,8 @@
 #pragma once
 
 #include"objects/object.h"
-#include"objects/portal.h"
+
+class Portal;
 
 
 struct Collider{

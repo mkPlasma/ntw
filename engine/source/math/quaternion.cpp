@@ -1,13 +1,30 @@
 #include"quaternion.h"
 
+#include"math/mathFunc.h"
+#include"core/error.h"
 #include<stdexcept>
 #include<string>
-#include"mathFunc.h"
 
 
 Quaternion::Quaternion(float x, float y, float z, float w) :
 	x_(x), y_(y), z_(z), w_(w) {
 
+}
+
+// Quaternion from rotation matrix
+Quaternion::Quaternion(const Matrix& rm){
+	Vec3 axis = Vec3(rm.get(2, 1) - rm.get(1, 2), rm.get(0, 2) - rm.get(2, 0), rm.get(1, 0) - rm.get(0, 1));
+	float ang = acosf((rm.get(0, 0) + rm.get(1, 1) + rm.get(2, 2) + 1) / 2);
+
+	setRotation(axis, ang);
+
+	// Verify sign
+	if(Matrix(3, 3, true).rotate(*this) != rm.getSubMatrix(0, 0, 3, 3)){
+		setRotation(axis, -ang);
+
+		if(Matrix(3, 3, true).rotate(*this) != rm.getSubMatrix(0, 0, 3, 3))
+			ntw::error("Failed to convert rotation matrix to quaternion");
+	}
 }
 
 Quaternion::Quaternion() : Quaternion(0, 0, 0, 1) {
@@ -38,7 +55,7 @@ Quaternion operator-(const Quaternion& a){
 		-a[0],
 		-a[1],
 		-a[2],
-		-a[3]
+		a[3]
 	);
 }
 
@@ -94,6 +111,13 @@ bool operator==(const Quaternion& a, const Quaternion& b){
 			a[1] == b[1] &&
 			a[2] == b[2] &&
 			a[3] == b[3];
+}
+
+bool operator!=(const Quaternion& a, const Quaternion& b){
+	return	a[0] != b[0] ||
+			a[1] != b[1] ||
+			a[2] != b[2] ||
+			a[3] != b[3];
 }
 
 float Quaternion::operator[](int a) const{

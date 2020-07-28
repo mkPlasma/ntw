@@ -7,6 +7,8 @@
 
 Vec3::Vec3() : x_(0), y_(0), z_(0) {}
 
+Vec3::Vec3(float val) : x_(val), y_(val), z_(val) {}
+
 Vec3::Vec3(float x, float y, float z) : x_(x), y_(y), z_(z) {}
 
 // Direction vector

@@ -9,7 +9,8 @@
 
 class Quaternion;
 
-#include"vec3.h"
+#include"math/vec3.h"
+#include"math/matrix.h"
 
 
 class Quaternion{
@@ -21,6 +22,7 @@ class Quaternion{
 
 public:
 	Quaternion(float x, float y, float z, float w);
+	Quaternion(const Matrix& rotationMatrix);
 	Quaternion();
 
 
@@ -31,6 +33,7 @@ public:
 	friend Quaternion operator*(const Quaternion& a, float b);
 	friend Quaternion operator/(const Quaternion& a, float b);
 	friend bool operator==(const Quaternion& a, const Quaternion& b);
+	friend bool operator!=(const Quaternion& a, const Quaternion& b);
 
 	Quaternion& operator+=(const Quaternion& a);
 	Quaternion& operator-=(const Quaternion& a);

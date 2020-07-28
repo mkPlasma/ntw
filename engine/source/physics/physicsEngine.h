@@ -31,10 +31,6 @@ class PhysicsEngine{
 	vector<Object*>& objects_;
 	vector<PhysicsObject*>& dynamicObjects_;
 
-	// Collisions
-	vector<vector<CollisionInterval>> aabbCollisionIntervals_;
-	unordered_map<ObjectPair, int, ObjectPair> aabbCollisions_;
-
 	AABBTree aabbTree_;
 
 	vector<ContactManifold> contactManifolds_;
@@ -42,31 +38,33 @@ class PhysicsEngine{
 	vector<Constraint> constraints_;
 	vector<ContactConstraint> contactConstraints_;
 
+	unordered_map<ObjectPortalPair, PortalCollisionInfo, ObjectPortalPair> portalCollisions_;
 
-	void initAABBCollisions();
 
-	void checkCollisions(float timeDelta, bool fullUpdate);
-	void resolveCollision(const ObjectPair& objects, float timeDelta);
-
-	void updateAABBCollisionIntervals();
-	vector<float> getCollisionInterval(Object* obj);
-
+	void checkCollisions();
+	void resolveCollision(const AABBPair& pair);
+	void resolvePortalCollision(Object* object, Portal* portal);
 
 public:
 	PhysicsEngine(World& world, vector<Object*>& objects, vector<PhysicsObject*>& physicsObjects);
 
 	void init();
 
-	void update(float timeDelta, bool fullUpdate);
+	void update();
+
+	void cleanup();
 
 
 	vector<Object*> castRay(const Vec3& position, const Vec3& direction, float maxDistance);
 
-	void initObject(Object* object);
+	void addObject(Object* object);
 	void removeObject(Object* object);
 
-	bool isInitialized();
-	vector<ContactManifold>& getContactManifolds();
+	void addPortal(Portal* portal);
+	void removePortal(Portal* portal);
 
-	AABBTree::Node* getRoot();
+	bool isInitialized();
+	
+	const vector<ContactManifold>& getContactManifolds();
+	const unordered_map<ObjectPortalPair, PortalCollisionInfo, ObjectPortalPair>& getPortalCollisions();
 };

@@ -9,6 +9,5 @@ struct Model{
 	vector<float> texCoords;
 	int numVertices;
 
-	Hitbox hitboxSAT;
 	vector<Hitbox> colliderHitboxes;
 };

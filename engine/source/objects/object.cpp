@@ -3,9 +3,9 @@
 #include"math/matrix.h"
 
 
-Object::Object(World& world, Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType) :
+Object::Object(World& world, Model* model, Material* material, RenderType renderType, PhysicsType physicsType) :
 	world_(world), scale_(Vec3(1, 1, 1)), model_(model), material_(material), renderType_(renderType),
-	physicsType_(physicsType), hitboxType_(hitboxType), hitboxCached_(false), soundSource_(-1) {
+	physicsType_(physicsType), hitboxCached_(false), soundSource_(-1) {
 
 	// Add colliders
 	if(physicsType != PhysicsType::NONE && model_ != nullptr){
@@ -22,11 +22,6 @@ Object::Object(World& world, Model* model, Material* material, RenderType render
 			colliders_.push_back(c);
 		}
 	}
-}
-
-Object::Object(World& world, Model* model, Material* material, RenderType renderType, HitboxType hitboxType) :
-	Object(world, model, material, renderType, hitboxType == HitboxType::NONE ? PhysicsType::NONE : PhysicsType::STATIC, hitboxType) {
-	
 }
 
 void Object::update(float timeDelta){
@@ -178,10 +173,6 @@ void Object::setPhysicsType(PhysicsType physicsType){
 	physicsType_ = physicsType;
 }
 
-void Object::setHitboxType(HitboxType hitboxType){
-	hitboxType_ = hitboxType;
-}
-
 bool Object::cacheTransformedHitbox(){
 
 	// Skip if hitbox has already been cached
@@ -256,6 +247,11 @@ const Quaternion& Object::getTRotation() const{
 	return rotation_;
 }
 
+bool Object::isPlayer() const{
+	return false;
+}
+
+
 Model* Object::getModel() const{
 	return model_;
 }
@@ -272,65 +268,8 @@ PhysicsType Object::getPhysicsType() const{
 	return physicsType_;
 }
 
-HitboxType Object::getHitboxType() const{
-	return hitboxType_;
-}
-
 const vector<Collider>& Object::getColliders() const{
 	return colliders_;
-}
-
-const Hitbox& Object::getTransformedHitboxSAT(){
-
-	// TODO: don't cache hitbox again if position/rotation/scale have not changed since last cache
-
-	// Skip if hitbox has already been cached
-	if(hitboxCached_ || model_ == nullptr)
-		return transformedHitboxSAT_;
-
-	// Clear vertex and face data
-	transformedHitboxSAT_.vertices.clear();
-	transformedHitboxSAT_.faces.clear();
-
-	// Copy edge data
-	transformedHitboxSAT_.edges = model_->hitboxSAT.edges;
-
-	Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
-
-	// For each vertex
-	for(Vec3 v : model_->hitboxSAT.vertices){
-
-		// Scale
-		v = v.multiplyElementWise(getScale());
-
-		// Rotate
-		v = rotation * v;
-
-		// Translate
-		v += getTPosition();
-
-		transformedHitboxSAT_.vertices.push_back(v);
-	}
-
-	// For each face
-	for(SATFace f : model_->hitboxSAT.faces){
-
-		// Scale
-		f.position = f.position.multiplyElementWise(getScale());
-
-		// Rotate
-		f.position = rotation * f.position;
-		f.normal = rotation * f.normal;
-
-		// Translate
-		f.position += getTPosition();
-
-		transformedHitboxSAT_.faces.push_back(f);
-	}
-
-	hitboxCached_ = true;
-
-	return transformedHitboxSAT_;
 }
 
 

@@ -182,6 +182,25 @@ Matrix operator/(const Matrix& a, float b){
 	return result;
 }
 
+bool operator==(const Matrix& a, const Matrix& b){
+
+	if(a.getNumRows() != b.getNumRows() || a.getNumCols() != b.getNumCols())
+		return false;
+
+	int rows = a.getNumRows();
+	int cols = a.getNumCols();
+
+	for(int i = 0; i < rows; i++)
+		for(int j = 0; j < cols; j++)
+			if(a.get(i, j) != b.get(i, j))
+				return false;
+
+	return true;
+}
+
+bool operator!=(const Matrix& a, const Matrix& b){
+	return !(a == b);
+}
 
 Matrix& Matrix::operator+=(const Matrix& a){
 	return *this = *this + a;
@@ -205,7 +224,7 @@ Matrix& Matrix::operator/=(float a){
 
 
 Matrix& Matrix::translate(float x, float y, float z){
-	Matrix t ;
+	Matrix t;
 	t.set(0, 3, x);
 	t.set(1, 3, y);
 	t.set(2, 3, z);
@@ -218,7 +237,7 @@ Matrix& Matrix::translate(const Vec3& v){
 }
 
 Matrix& Matrix::scale(float x, float y, float z){
-	Matrix t;
+	Matrix t = rows_ == 4 ? Matrix() : Matrix(3, 3, true);
 	t.set(0, 0, x);
 	t.set(1, 1, y);
 	t.set(2, 2, z);
@@ -240,26 +259,33 @@ Matrix& Matrix::rotate(const Quaternion& q){
 	float y2 = 2 * powf(y, 2);
 	float z2 = 2 * powf(z, 2);
 
-	mat values = {
-		1 - y2 - z2,			2 * (x * y - w * z),	2 *(x * z + w * y),		0,
-		2 * (x * y + w * z),	1 - x2 - z2,			2 *(y * z - w * x),		0,
-		2 * (x * z - w * y),	2 * (y * z + w * x),	1 - x2 - y2,			0,
-		0,						0,						0,						1,
-	};
+	Matrix t = rows_ == 4 ? Matrix() : Matrix(3, 3, true);
+	t.set(0, 0, 1 - y2 - z2);
+	t.set(0, 1, 2 * (x * y - w * z));
+	t.set(0, 2, 2 * (x * z + w * y));
 
-	Matrix t(values, 4, 4);
+	t.set(1, 0, 2 * (x * y + w * z));
+	t.set(1, 1, 1 - x2 - z2);
+	t.set(1, 2, 2 * (y * z - w * x));
+
+	t.set(2, 0, 2 * (x * z - w * y));
+	t.set(2, 1, 2 * (y * z + w * x));
+	t.set(2, 2, 1 - x2 - y2);
+
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(Vec3 axis, float ang){
+Matrix& Matrix::rotate(Vec3 axis, float ang, bool degrees){
 
-	float c = cosf(toRadians(ang));
-	float s = sinf(toRadians(ang));
+	ang = degrees ? toRadians(ang) : ang;
+
+	float c = cosf(ang);
+	float s = sinf(ang);
 
 	axis.normalize();
 	Vec3 tmp = (1 - c) * axis;
 
-	Matrix t = Matrix();
+	Matrix t = rows_ == 4 ? Matrix() : Matrix(3, 3, true);
 	t.set(0, 0, c + tmp[0] * axis[0]);
 	t.set(0, 1, tmp[0] * axis[1] + s * axis[2]);
 	t.set(0, 2, tmp[0] * axis[2] - s * axis[1]);
@@ -306,8 +332,20 @@ Matrix& Matrix::rotate(float x, float y, float z, bool degrees){
 	return *this = (rows_ == 4 ? t : t.getSubMatrix(0, 0, 3, 3)) * *this;
 }
 
-Matrix& Matrix::rotate(const Vec3& v, bool degrees){
-	return rotate(v[0], v[1], v[2], degrees);
+Matrix& Matrix::rotate(const Vec3& v, bool reverse, bool degrees){
+
+	if(!reverse){
+		rotate(v[0], 0, 0, degrees);
+		rotate(0, v[1], 0, degrees);
+		rotate(0, 0, v[2], degrees);
+	}
+	else{
+		rotate(0, 0, v[2], degrees);
+		rotate(0, v[1], 0, degrees);
+		rotate(v[0], 0, 0, degrees);
+	}
+
+	return *this;
 }
 
 

@@ -99,6 +99,9 @@
     <ClCompile Include="source\physics\aabbTree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\physics\physFunc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\math\vec3.h">
@@ -141,9 +144,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\physics\physDefine.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\physics\physEnum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\physics\physicsEngine.h">
@@ -213,6 +213,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\objects\collider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\physics\physicsType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\physics\physFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

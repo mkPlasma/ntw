@@ -18,8 +18,9 @@ protected:
 	const float mass_;
 	float massInv_;
 
-	bool useRotation_;
 	bool useGravity_;
+	Vec3 gravityDirection_;
+
 	bool useFriction_;
 
 	// For simple dynamic objects only
@@ -30,32 +31,30 @@ protected:
 	Matrix inertiaBaseInv_;
 	Matrix tInertiaInv_;
 
-	Vec3 tPosition_;
-	Quaternion tRotation_;
-
 	Vec3 velocity_;
 	Vec3 angularVelocity_;
 
-	Vec3 acceleration_;
+	Vec3 tPosition_;
+	Quaternion tRotation_;
 
 public:
-	PhysicsObject(World& world, Model* model, Material* material, HitboxType hitboxType, float mass);
-	PhysicsObject(World& world, Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass);
+	PhysicsObject(World& world, Model* model, Material* material, float mass, PhysicsType physicsType = PhysicsType::RIGID_BODY);
 
 	// Initialize inertia matrix and t-variables
 	void initPhysics();
 
 	// Update object physics
-	void updatePhysics(float timeDelta);
+	void updatePhysics();
 
 	// Partial update during simulation step
-	void tUpdatePhysics(float timeDelta);
+	void tUpdatePhysics();
 
 
 	void updateTInertia();
 
-	void setUseRotation(bool useRotation);
 	void setUseGravity(bool useGravity);
+	void setGravityDirection(const Vec3& gravityDirection);
+
 	void setOnGround(bool onGround);
 
 
@@ -64,8 +63,6 @@ public:
 	void setAngularVelocity(const Vec3& angularVelocity);
 	void addAngularVelocity(const Vec3& angularVelocity);
 
-	void addAcceleration(const Vec3& acceleration);
-
 
 	float getMass() const;
 	float getMassInv() const;
@@ -73,7 +70,8 @@ public:
 	const Matrix& getTInertiaInv() const;
 
 	bool useGravity() const;
-	bool useRotation() const;
+	const Vec3& getGravityDirection() const;
+
 	bool onGround() const;
 
 	const Vec3& getTPosition() const override;

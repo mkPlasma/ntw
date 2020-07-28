@@ -45,6 +45,9 @@ public:
 	friend Matrix operator*(const Matrix& a, float b);
 	friend Matrix operator/(const Matrix& a, float b);
 
+	friend bool operator==(const Matrix& a, const Matrix& b);
+	friend bool operator!=(const Matrix& a, const Matrix& b);
+
 	Matrix& operator+=(const Matrix& a);
 	Matrix& operator-=(const Matrix& a);
 	Matrix& operator*=(const Matrix& a);
@@ -59,9 +62,9 @@ public:
 	Matrix& scale(const Vec3& v);
 
 	Matrix& rotate(const Quaternion& q);
-	Matrix& rotate(Vec3 axis, float ang);
+	Matrix& rotate(Vec3 axis, float ang, bool degrees = false);
 	Matrix& rotate(float x, float y, float z, bool degrees = true);
-	Matrix& rotate(const Vec3& v, bool degree = true);
+	Matrix& rotate(const Vec3& v, bool reverse = false, bool degree = true);
 
 
 	Matrix& place(int row, int col, const Matrix& a);

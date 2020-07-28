@@ -12,21 +12,11 @@ uniform mat4 viewProj;
 uniform mat4 model;
 
 
-// Coordinate system fix
-// Inverts y axis and swaps y and z axes
-const mat4 coordFix = mat4(
-	1.0,	0.0,	0.0,	0.0,
-	0.0,	0.0,	-1.0,	0.0,
-	0.0,	1.0,	0.0,	0.0,
-	0.0,	0.0,	0.0,	1.0
-);
-
-
 void main(){
 	fPos = vec3(model * vec4(position, 1.0));
 	fNormal = mat3(transpose(inverse(model))) * normal;
 	fTexCoords = texCoords;
 	
 	
-	gl_Position = (viewProj * coordFix) * model * vec4(position, 1.0);
+	gl_Position = viewProj * model * vec4(position, 1.0);
 }

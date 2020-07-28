@@ -63,19 +63,16 @@ void Engine::gameLoop(){
 		float timeDelta		= updateTime		/ 1000000.0f;
 		float physTimeDelta = physUpdateTime	/ 1000000.0f;
 		
-		// Fix physics time delta if physics will be updated this frame
-		if(physTimeDelta > NTW_PHYS_TIME_DELTA)
-			physTimeDelta = 0;
-
 		// Update last update times
 		lastUpdate = currentTime;
 
 		// Check whether to update physics
-		bool fullPhysicsUpdate = physUpdateTime >= NTW_PHYS_UPDATE_TIME_MICRO || firstUpdate;
+		bool updatePhysics = physUpdateTime >= NTW_PHYS_UPDATE_TIME_MICRO || firstUpdate;
 
-		if(fullPhysicsUpdate)
+		if(updatePhysics){
 			lastPhysicsUpdate = currentTime;
-
+			physTimeDelta = 0;
+		}
 
 		// Get game time (ms)
 		int timeMillis = timeBetween(startTime, currentTime) / 1000;
@@ -83,7 +80,7 @@ void Engine::gameLoop(){
 
 		// Update game
 		window_.updateKeys();
-		game_.update(timeMillis, timeDelta, fullPhysicsUpdate);
+		game_.update(timeMillis, timeDelta, updatePhysics);
 
 		// Render
 		game_.render(timeMillis, physTimeDelta);

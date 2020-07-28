@@ -224,9 +224,6 @@ void ntw::generateHitbox(Model* model){
 
 	// Add collider hitbox
 	model->colliderHitboxes.push_back(hitbox);
-
-	// TEMPORARY
-	model->hitboxSAT = hitbox;
 }
 
 void ntw::setModelProperties(Model* model){

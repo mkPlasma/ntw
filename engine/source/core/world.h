@@ -53,7 +53,7 @@ public:
 	// Temporary test
 	void test();
 
-	void update(float timeDelta, bool fullPhysicsUpdate);
+	void update(float timeDelta, bool updatePhysics);
 
 	void unload();
 

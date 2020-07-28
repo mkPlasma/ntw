@@ -5,13 +5,9 @@
 
 
 
-PhysicsObject::PhysicsObject(World& world, Model* model, Material* material, HitboxType hitboxType, float mass) :
-	PhysicsObject(world, model, material, PhysicsType::DYNAMIC, hitboxType, mass) {
-}
-
-PhysicsObject::PhysicsObject(World& world, Model* model, Material* material, PhysicsType physicsType, HitboxType hitboxType, float mass) :
-	Object(world, model, material, model == nullptr ? RenderType::NONE : RenderType::DYNAMIC, physicsType, hitboxType),
-	mass_(mass), massInv_(1 / mass), useRotation_(true), useGravity_(true), useFriction_(true),
+PhysicsObject::PhysicsObject(World& world, Model* model, Material* material, float mass, PhysicsType physicsType) :
+	Object(world, model, material, model == nullptr ? RenderType::NONE : RenderType::DYNAMIC, physicsType),
+	mass_(mass), massInv_(1 / mass), useGravity_(true), gravityDirection_(Vec3(0, 0, -1)), useFriction_(true),
 	onGround_(false), onGroundClearNextFrame_(false) {
 	
 }
@@ -23,92 +19,69 @@ void PhysicsObject::initPhysics(){
 	tPosition_ = position_;
 	tRotation_ = rotation_;
 
-	// Calculate inertia values if rotation is allowed
-	if(useRotation_){
+	// Hitbox vertices to calculate inertia from
+	vector<Vec3> vertices;
 
-		// Hitbox vertices to calculate inertia from
-		const vector<Vec3>& verts = model_->hitboxSAT.vertices;
+	// Get vertices from each collider
+	for(const Collider& c : colliders_)
+		std::copy(c.hitbox->vertices.begin(), c.hitbox->vertices.end(), std::back_inserter(vertices));
 
-		// Point mass value
-		float m = mass_ / verts.size();
 
-		// Base inertia tensor (no rotation)
-		inertiaBase_ = Matrix(3, 3);
+	// Point mass value
+	float m = mass_ / vertices.size();
 
-		// Set each tensor element
-		for(int i = 0; i < 3; i++){
-			for(int j = 0; j < 3; j++){
+	// Base inertia tensor (no rotation)
+	inertiaBase_ = Matrix(3, 3);
 
-				// Inertia sum
-				float sum = 0;
+	// Set each tensor element
+	for(int i = 0; i < 3; i++){
+		for(int j = 0; j < 3; j++){
 
-				// Get inertia of each point
-				for(Vec3 v : verts){
-					v *= scale_;
-					sum += (i == j ? v.magnitude2() : 0) - (v[i] * v[j]);
-				}
+			// Inertia sum
+			float sum = 0;
 
-				inertiaBase_.set(i, j, sum * m);
+			// Get inertia of each point
+			for(Vec3 v : vertices){
+				v *= scale_;
+				sum += (i == j ? v.magnitude2() : 0) - (v[i] * v[j]);
 			}
+
+			inertiaBase_.set(i, j, sum * m);
 		}
-
-		// Cube
-		/*
-		float sx2 = powf(scale_[0] * 2, 2);
-		float sy2 = powf(scale_[1] * 2, 2);
-		float sz2 = powf(scale_[2] * 2, 2);
-		inertiaBase_.set(0, 0, (mass_ * (sy2 + sz2)) / 12);
-		inertiaBase_.set(1, 1, (mass_ * (sx2 + sz2)) / 12);
-		inertiaBase_.set(2, 2, (mass_ * (sx2 + sy2)) / 12);
-		*/
-
-		// Inverted inertia
-		inertiaBaseInv_ = inertiaBase_.getInverse();
-
-		updateTInertia();
 	}
-	// If not, set inverse inertia to all zeroes (infinite inertia to disable rotation)
-	else
-		tInertiaInv_ = Matrix(3, 3);
+
+	// Inverted inertia
+	inertiaBaseInv_ = inertiaBase_.getInverse();
+
+	updateTInertia();
 }
 
-void PhysicsObject::updatePhysics(float timeDelta){
+void PhysicsObject::updatePhysics(){
 
 	if(physicsType_ == PhysicsType::NONE || physicsType_ == PhysicsType::STATIC)
 		return;
 
-	// Rigid body time delta
-	if(physicsType_ == PhysicsType::DYNAMIC)
-		timeDelta = NTW_PHYS_TIME_DELTA;
+	// Keep track of previous position/rotation
+	Vec3 prevPosition = position_;
+	Quaternion prevRotation = rotation_;
 
 	// Update velocity and position
-	//velocity_ += acceleration_;
-	position_ += velocity_ * timeDelta;
+	position_ += velocity_ * NTW_PHYS_TIME_DELTA;
 
 	// Simple friction
-	if(physicsType_ == PhysicsType::DYNAMIC_SIMPLE && useFriction_ && onGround_){
-		float factor = 1 / powf(2.718f, 10 * timeDelta);
-		velocity_[0] *= factor;
-		velocity_[1] *= factor;
+	if(physicsType_ == PhysicsType::SIMPLE && useFriction_ && onGround_){
+		float factor = 1 / powf(2.718f, 10 * NTW_PHYS_TIME_DELTA);
+		velocity_ -= (velocity_ - velocity_.projOn(gravityDirection_)) * (1 - factor);
 		angularVelocity_ *= factor;
 	}
 
 	// Update rotation
-	if(useRotation_){
-		float angVelMag = angularVelocity_.magnitude();
-		rotation_.rotate(angularVelocity_, angVelMag * timeDelta);
-	}
-
-	// Clear accelerations
-	//acceleration_ = Vec3();
+	float angVelMag = angularVelocity_.magnitude();
+	rotation_.rotate(angularVelocity_, angVelMag * NTW_PHYS_TIME_DELTA);
 
 	// Update t-variables
 	tPosition_ = position_;
 	tRotation_ = rotation_;
-
-	// Cache hitbox next update if the object has moved or rotated
-	if(velocity_.nonzero() || angularVelocity_.nonzero())
-		hitboxCached_ = false;
 
 	// Clear on ground flag
 	if(onGroundClearNextFrame_)
@@ -116,61 +89,34 @@ void PhysicsObject::updatePhysics(float timeDelta){
 
 	onGroundClearNextFrame_ = onGround_;
 
-	/*
-	// Update velocity and position
-	velocity_ += acceleration_ * PHYS_TIMESTEP;
-	position_ += velocity_ * PHYS_TIMESTEP;
-
-	// Update rotation
-	if(useRotation_){
-		float angVelMag = angularVelocity_.magnitude();
-		rotation_.rotate(angularVelocity_, angVelMag * PHYS_TIMESTEP);
-	}
-
-	// Clear accelerations
-	acceleration_ = Vec3();
-
-	// Update t-variables
-	tPosition_ = position_;
-	tRotation_ = rotation_;
-	*/
+	// If position/rotation have changed, cache hitbox again
+	if(prevPosition != position_ || prevRotation != rotation_)
+		hitboxCached_ = false;
 }
 
-void PhysicsObject::tUpdatePhysics(float timeDelta){
+void PhysicsObject::tUpdatePhysics(){
 
 	if(physicsType_ == PhysicsType::NONE || physicsType_ == PhysicsType::STATIC)
 		return;
 
-	// Rigid body time delta
-	if(physicsType_ == PhysicsType::DYNAMIC)
-		timeDelta = NTW_PHYS_TIME_DELTA;
+	// Keep track of previous position/rotation
+	Vec3 prevTPosition = tPosition_;
+	Quaternion prevTRotation = tRotation_;
 
 	// Update velocity and position
-	tPosition_ = position_ + (velocity_) * timeDelta;
+	tPosition_ = position_ + (velocity_) *NTW_PHYS_TIME_DELTA;
 
 	// Update rotation
-	if(useRotation_){
-		float angVelMag = angularVelocity_.magnitude();
-		tRotation_ = rotation_;
-		tRotation_.rotate(angularVelocity_, angVelMag * timeDelta);
+	float angVelMag = angularVelocity_.magnitude();
+	tRotation_ = rotation_;
+	tRotation_.rotate(angularVelocity_, angVelMag * NTW_PHYS_TIME_DELTA);
 
-		if(angVelMag != 0)
-			updateTInertia();
-	}
+	if(angVelMag != 0)
+		updateTInertia();
 
-	/*
-	// Update position
-	tPosition_ += (velocity_ + acceleration_) * PHYS_TIMESTEP;
-
-	// Update rotation
-	if(useRotation_){
-		float angVelMag = angularVelocity_.magnitude();
-		tRotation_.rotate(angularVelocity_, angVelMag * PHYS_TIMESTEP);
-
-		if(angVelMag != 0)
-			updateTInertia();
-	}
-	*/
+	// If position/rotation have changed, cache hitbox again
+	if(prevTPosition != tPosition_ || prevTRotation != tRotation_)
+		hitboxCached_ = false;
 }
 
 
@@ -179,12 +125,12 @@ void PhysicsObject::updateTInertia(){
 	tInertiaInv_ = tRot * inertiaBaseInv_ * tRot.getTranspose();
 }
 
-void PhysicsObject::setUseRotation(bool useRotation){
-	useRotation_ = useRotation;
-}
-
 void PhysicsObject::setUseGravity(bool useGravity){
 	useGravity_ = useGravity;
+}
+
+void PhysicsObject::setGravityDirection(const Vec3& gravityDirection){
+	gravityDirection_ = gravityDirection;
 }
 
 void PhysicsObject::setOnGround(bool onGround){
@@ -212,10 +158,6 @@ void PhysicsObject::addAngularVelocity(const Vec3& angularVelocity){
 	angularVelocity_ += angularVelocity;
 }
 
-void PhysicsObject::addAcceleration(const Vec3& acceleration){
-	acceleration_ += acceleration;
-}
-
 float PhysicsObject::getMass() const{
 	return mass_;
 }
@@ -232,12 +174,12 @@ const Matrix& PhysicsObject::getTInertiaInv() const{
 	return tInertiaInv_;
 }
 
-bool PhysicsObject::useRotation() const{
-	return useRotation_;
-}
-
 bool PhysicsObject::useGravity() const{
 	return useGravity_;
+}
+
+const Vec3& PhysicsObject::getGravityDirection() const{
+	return gravityDirection_;
 }
 
 bool PhysicsObject::onGround() const{

@@ -2,7 +2,6 @@
 
 uniform sampler2DMS tex;
 uniform int time;
-uniform ivec2 screenSize;
 
 //in vec3 fPos;
 //in vec3 fNormal;
@@ -21,5 +20,5 @@ vec4 textureSample(sampler2DMS texture, ivec2 coord){
 
 void main(){
 	fragColor = textureSample(tex, ivec2(gl_FragCoord.x, gl_FragCoord.y));
-	//fragColor.rb *= 1.5;
+	fragColor.rb *= 1.5;
 }

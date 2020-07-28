@@ -46,13 +46,18 @@ public:
 private:
 	Node* root_;
 	vector<AABBPair> overlapping_;
+	vector<Node*> invalid_;
 
 
-	Node* updateNode(Node* node);
+	void updateNode(Node* node);
 	void updateAABB(Node* node);
 
+	void clear(Node* node);
+
 	void addNode(Node* node, Node* parent);
-	Node* removeNode(Node* node, bool deleteNode);
+
+	void remove(const Collider* collider, Node* node);
+	void removeNode(Node* node, bool deleteNode = true);
 
 
 	void resetBranchChecked(Node* node);
@@ -61,10 +66,10 @@ private:
 
 public:
 	void update();
+	void clear();
 
 	void add(const Collider* collider);
+	void remove(const Collider* collider);
 
 	const vector<AABBPair>& getOverlapping();
-
-	Node* getRoot();
 };

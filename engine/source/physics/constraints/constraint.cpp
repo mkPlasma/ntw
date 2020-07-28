@@ -10,10 +10,10 @@ Constraint::Constraint(Object* object1, Object* object2, bool constrainGreaterTh
 
 void Constraint::init(){
 
-	bool obj1Dynamic	= object1_->getPhysicsType() == PhysicsType::DYNAMIC;
-	bool obj2Dynamic	= object2_->getPhysicsType() == PhysicsType::DYNAMIC;
-	bool obj1Phys		= obj1Dynamic || object1_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
-	bool obj2Phys		= obj2Dynamic || object2_->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE;
+	bool obj1Dynamic	= object1_->getPhysicsType() == PhysicsType::RIGID_BODY;
+	bool obj2Dynamic	= object2_->getPhysicsType() == PhysicsType::RIGID_BODY;
+	bool obj1Phys		= obj1Dynamic || object1_->getPhysicsType() == PhysicsType::SIMPLE;
+	bool obj2Phys		= obj2Dynamic || object2_->getPhysicsType() == PhysicsType::SIMPLE;
 
 	PhysicsObject* pObj1 = obj1Phys ? (PhysicsObject*)object1_ : nullptr;
 	PhysicsObject* pObj2 = obj2Phys ? (PhysicsObject*)object2_ : nullptr;
@@ -99,12 +99,12 @@ void Constraint::apply(){
 	vel_ += velCor_;
 
 	// Apply corrective velocities if object is dymamic
-	if(object1_->getPhysicsType() == PhysicsType::DYNAMIC){
+	if(object1_->getPhysicsType() == PhysicsType::RIGID_BODY){
 		PhysicsObject* obj = (PhysicsObject*)object1_;
 		obj->addVelocity(Vec3(velCor_.get(0, 0), velCor_.get(1, 0), velCor_.get(2, 0)));
 		obj->addAngularVelocity(Vec3(velCor_.get(3, 0), velCor_.get(4, 0), velCor_.get(5, 0)));
 	}
-	if(object2_->getPhysicsType() == PhysicsType::DYNAMIC){
+	if(object2_->getPhysicsType() == PhysicsType::RIGID_BODY){
 		PhysicsObject* obj = (PhysicsObject*)object2_;
 		obj->addVelocity(Vec3(velCor_.get(6, 0), velCor_.get(7, 0), velCor_.get(8, 0)));
 		obj->addAngularVelocity(Vec3(velCor_.get(9, 0), velCor_.get(10, 0), velCor_.get(11, 0)));

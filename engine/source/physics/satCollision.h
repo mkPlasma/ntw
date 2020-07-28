@@ -17,34 +17,43 @@ class SATCollision;
 #define NTW_SAT_THRESHOLD	-0.0001f
 
 
-// Store distance and index of queried faces/edges
-struct SATContactInfo{
-	float distance;
-	bool isEdgePair;
-	int index1;
-	int index2;
-};
-
-// Projected interval for edge query
-struct SATInterval{
-	float v1;
-	float v2;
-};
-
-
 class SATCollision{
 
-	// Objects
-	Object* object1_;
-	Object* object2_;
+	// Info on found separating axis for reuse next frame
+	struct SeparatingAxis{
+		int index1;
+		int index2;
+		bool isFace;
+	};
+
+	// Store distance and index of queried faces/edges
+	struct ContactInfo{
+		float distance;
+		bool isEdgePair;
+		int index1;
+		int index2;
+	};
+
+	// Projected interval for edge query
+	struct EdgeInterval{
+		float v1;
+		float v2;
+	};
 
 
-	// Cached transformed hitbox vertices
-	const Hitbox& obj1Hitbox_;
-	const Hitbox& obj2Hitbox_;
+	// Colliders
+	const Collider* collider1_;
+	const Collider* collider2_;
+
+	// Transformed hitbox of each collider
+	const Hitbox& hitbox1_;
+	const Hitbox& hitbox2_;
+
+	// Store info of separating axis
+	SeparatingAxis separatingAxis_;
 
 	// Store info for contact point generation
-	SATContactInfo contactInfo_;
+	ContactInfo contactInfo_;
 
 
 	float queryFaces(const Hitbox& hitbox1, const Hitbox& hitbox2, bool useIndex1);
@@ -52,23 +61,18 @@ class SATCollision{
 
 	Vec3 getSupportPoint(const Hitbox& hitbox, const Vec3& direction);
 
-	float getFaceToPointDistance(const SATFace& f, const Vec3& v);
-
-	SATInterval project(const Hitbox& hitbox, const Vec3& axis);
+	EdgeInterval project(const Hitbox& hitbox, const Vec3& axis);
 
 	bool isMinkowskiFace(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d);
-	float getEdgeToEdgeDistance(const SATHalfEdge& e1, const SATHalfEdge& e2);
-
-
-	vector<Vec3> clipFaces(const SATFace& f1, const SATFace& f2);
 
 	bool setContactInfo(Contact& c);
 
 public:
-	SATCollision(Object* object1, Object* object2);
+	SATCollision(const Collider* collider1, const Collider* collider2);
 
-	// Test collision, true if objects are colliding
+	// Test collision, returns true if objects are colliding
 	bool testCollision();
+	bool testCollision(const SeparatingAxis& axis);
 
 	// Get penetration vector and object contact points
 	ContactManifold getContactPoints();

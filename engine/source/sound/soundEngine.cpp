@@ -69,7 +69,7 @@ void SoundEngine::updateWorldSources(){
 
 void SoundEngine::addCollisionSounds(){
 
-	vector<ContactManifold>& contactManifolds = world_->getPhysicsEngine().getContactManifolds();
+	const vector<ContactManifold>& contactManifolds = world_->getPhysicsEngine().getContactManifolds();
 
 	// For each colliding object pair
 	for(auto i = contactManifolds.begin(); i != contactManifolds.end(); i++){

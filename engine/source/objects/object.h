@@ -14,7 +14,7 @@ class Object;
 #include"objects/model.h"
 #include"objects/material.h"
 #include"graphics/renderType.h"
-#include"physics/physEnum.h"
+#include"physics/physicsType.h"
 #include"physics/physStruct.h"
 #include"objects/collider.h"
 #include<al.h>
@@ -37,7 +37,6 @@ protected:
 
 	RenderType renderType_;
 	PhysicsType physicsType_;
-	HitboxType hitboxType_;
 
 	bool deleted_;
 
@@ -50,8 +49,7 @@ protected:
 	ALuint soundSource_;
 
 public:
-	Object(World& world, Model* model, Material* material, RenderType renderType, PhysicsType physicsType, HitboxType hitboxType);
-	Object(World& world, Model* model, Material* material, RenderType renderType, HitboxType hitboxType = HitboxType::NONE);
+	Object(World& world, Model* model, Material* material, RenderType renderType = RenderType::STATIC, PhysicsType physicsType = PhysicsType::STATIC);
 
 	virtual void update(float timeDelta);
 
@@ -92,7 +90,6 @@ public:
 
 	void setRenderType(RenderType renderType);
 	void setPhysicsType(PhysicsType physicsType);
-	void setHitboxType(HitboxType hitboxType);
 
 	bool cacheTransformedHitbox();
 
@@ -106,15 +103,15 @@ public:
 	virtual const Vec3& getTPosition() const;
 	virtual const Quaternion& getTRotation() const;
 
+	virtual bool isPlayer() const;
+
 	Model* getModel() const;
 	Material* getMaterial() const;
 
 	RenderType getRenderType() const;
 	PhysicsType getPhysicsType() const;
-	HitboxType getHitboxType() const;
 
 	const vector<Collider>& getColliders() const;
-	const Hitbox& getTransformedHitboxSAT();
 
 
 	bool isDeleted() const;

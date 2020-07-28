@@ -10,9 +10,14 @@
 class Portal;
 
 #include"math/vec3.h"
+#include"math/matrix.h"
+#include"math/quaternion.h"
+#include"objects/collider.h"
 #include<vector>
 
 using std::vector;
+
+struct Collider;
 
 
 class Portal{
@@ -24,42 +29,56 @@ class Portal{
 	Portal* pairedPortalBack_;
 	
 	Vec3 position_;
-	Vec3 rotation_;
+	Quaternion rotation_;
 	Vec3 normal_;
 
 	float width_;
 	float height_;
 
-	vector<Vec3> verts_;
+	vector<Vec3> vertices_;
+
+	Matrix transformationMatrix_;
+	Matrix rotationMatrix_;
+
+	Collider collider_;
 
 public:
-	Portal(Vec3 position, Vec3 rotation, float width, float height, int portalNum, int portalNumBack = -1);
+	Portal(Vec3 position, Quaternion rotation, float width, float height, int portalNum, int portalNumBack = -1);
 
-	void updateGeometry();
+	void update();
+
+	bool isPointInFront(const Vec3& v);
+
+	Vec3 getTransformedVector(const Vec3& v);
+	Vec3 getRotatedVector(const Vec3& v);
 
 
 	void setPairedPortal(Portal* pairedPortal);
 	void setPairedPortalBack(Portal* pairedPortalBack);
 
 	void setPosition(const Vec3& position);
-	void setRotation(const Vec3& rotation);
+	void setRotation(const Quaternion& rotation);
 
 	void setWidth(float width);
 	void setHeight(float height);
 
 
-	int getPortalNum();
-	int getPortalNumBack();
+	int getPortalNum() const;
+	int getPortalNumBack() const;
 
-	Portal* getPairedPortal();
-	Portal* getPairedPortalBack();
+	Portal* getPairedPortal() const;
+	Portal* getPairedPortalBack() const;
 
-	const Vec3& getPosition();
-	const Vec3& getRotation();
-	const Vec3& getNormal();
+	const Vec3& getPosition() const;
+	const Quaternion& getRotation() const;
+	const Vec3& getNormal() const;
 
-	float getWidth();
-	float getHeight();
+	float getWidth() const;
+	float getHeight() const;
 
-	const vector<Vec3>& getVerts();
+	const Matrix& getTransformationMatrix() const;
+	const Matrix& getRotationMatrix() const;
+
+	const vector<Vec3>& getVertices() const;
+	const Collider& getCollider() const;
 };

@@ -21,6 +21,10 @@ void World::test(){
 	testMaterial->shaderProgram = "standard";
 	testMaterial->collisionSound = resCache_.loadSound("test2.ogg");
 
+	Material* boxMaterial = new Material();
+	boxMaterial->texture = resCache_.loadTexture("box.bmp");
+	boxMaterial->shaderProgram = "standard";
+
 	Model* sphereModel = new Model(ntw::getSphere(16, 16, true));
 	setModelProperties(sphereModel);
 	Material* sphereMaterial = new Material();
@@ -42,20 +46,20 @@ void World::test(){
 	}
 	*/
 
-	Object* obj1 = new Object(*this, sphereModel, sphereMaterial, RenderType::STATIC, HitboxType::MESH);
+	Object* obj1 = new Object(*this, sphereModel, sphereMaterial);
 	obj1->setPosition(-3, 0, 0);
 	obj1->setScale(0.5);
 	obj1->setRotation(15, 15, 15);
-	addObject(obj1);
+	//addObject(obj1);
 
-	Object* obj2 = new Object(*this, testModel, testMaterial, RenderType::STATIC, HitboxType::MESH);
+	Object* obj2 = new Object(*this, testModel, testMaterial);
 	obj2->setPosition(3, 0, 0);
 	obj2->setScale(1);
 	//obj2->setRotation(0, 0, 45);
 	addObject(obj2);
 
 
-	Object* obj3 = new Object(*this, sphereModel, sphereMaterial, RenderType::STATIC, HitboxType::PREDEFINED);
+	Object* obj3 = new Object(*this, sphereModel, sphereMaterial);
 	obj3->setPosition(0, -2, 0.2f);
 	//addObject(obj3);
 
@@ -69,19 +73,24 @@ void World::test(){
 	for(auto i = floorModel->texCoords.begin(); i != floorModel->texCoords.end(); i++)
 		*i *= 50;
 
-	Object* floor = new Object(*this, floorModel, floorMaterial, RenderType::STATIC, HitboxType::MESH);
+	Object* floor = new Object(*this, floorModel, floorMaterial);
 	floor->setPosition(0, 0, -2);
 	floor->setScale(25, 25, 1);
 	addObject(floor);
 
+	Object* wall = new Object(*this, floorModel, floorMaterial);
+	wall->setPosition(-5, 0, 0);
+	wall->setScale(1, 25, 25);
+	addObject(wall);
 
-	const int c1 = 0;
-	const int c2 = 0;
+
+	const int c1 = 1;
+	const int c2 = 1;
 
 	for(float x = 0; x < c1; x++){
 		for(float y = 0; y < c1; y++){
 			for(float z = 0; z < c2; z++){
-				PhysicsObject* physObj1 = new PhysicsObject(*this, testModel, testMaterial, PhysicsType::DYNAMIC, HitboxType::MESH, 1);
+				PhysicsObject* physObj1 = new PhysicsObject(*this, testModel, boxMaterial, 1);
 				//Object* physObj1 = new Object(*this, testModel, testMaterial, RenderType::STATIC, HitboxType::MESH);
 				physObj1->setPosition(0 + x - c1 / 2, 4 + y - c1 / 2, z  * 0.75f);
 				//physObj1->rotate(0, -30, 0);
@@ -93,13 +102,13 @@ void World::test(){
 		}
 	}
 
-	Object* obj4 = new Object(*this, testModel, testMaterial, RenderType::STATIC, HitboxType::MESH);
+	Object* obj4 = new Object(*this, testModel, testMaterial);
 	obj4->setPosition(0, 4, -1);
 	obj4->setScale(4, 0.1f, 4);
 	obj4->setRotation(-45, 0, 0);
 	//addObject(obj4);
 
-	PhysicsObject* physObj2 = new PhysicsObject(*this, testModel, testMaterial, PhysicsType::DYNAMIC, HitboxType::MESH, 1);
+	PhysicsObject* physObj2 = new PhysicsObject(*this, testModel, testMaterial, 1);
 	physObj2->setPosition(0, 3, 0);
 	physObj2->setRotation(90, 30, 0);
 	physObj2->setScale(0.3f);
@@ -117,54 +126,57 @@ void World::test(){
 	blankMaterial->texture = resCache_.loadTexture("blank.bmp");
 	blankMaterial->shaderProgram = "standard";
 
-	vector<Vec3> testPortals = {
-		Vec3(-1, -2, 0),	Vec3(90, 0, 45),
-		Vec3(1, -2, 0),		Vec3(90, 0, 0)
+	vector<Vec3> testPortalPositions = {
+		Vec3(1, -2, 0),
+		Vec3(-3, -2, 0),
+	};
+
+	vector<Quaternion> testPortalRotations = {
+		Quaternion().rotate(0, 0, 0),
+		Quaternion().rotate(90, 0, 90),
 	};
 
 	const float pWidth = 1.5f;
-	const float pHeight = 2;
+	const float pHeight = 2.1f;
 	const float frameScale = 0.05f;
 
-	for(int i = 0; i < testPortals.size(); i += 2){
+	for(int i = 0; i < testPortalPositions.size(); i ++){
 
-		Vec3 pos = testPortals[i];
-		Vec3 rotation = testPortals[i + 1];
+		Vec3 pos = testPortalPositions[i];
+		Quaternion rotation = testPortalRotations[i];
 
 		Portal* portal = new Portal(pos, rotation, pWidth, pHeight, i / 4);
 		portals_.push_back(portal);
 
 		Vec3 f1 = Vec3((-pWidth / 2) - (frameScale / 2), 0, 0);
 		Vec3 f2 = Vec3((pWidth / 2) + (frameScale / 2), 0, 0);
-		Vec3 f3 = Vec3(0, (-pHeight / 2) - (frameScale / 2), 0);
-		Vec3 f4 = Vec3(0, (pHeight / 2) + (frameScale / 2), 0);
+		Vec3 f3 = Vec3(0, 0, (-pHeight / 2) - (frameScale / 2));
+		Vec3 f4 = Vec3(0, 0, (pHeight / 2) + (frameScale / 2));
 
 		f1 = Matrix(3, 3, true).rotate(rotation) * f1;
 		f2 = Matrix(3, 3, true).rotate(rotation) * f2;
 		f3 = Matrix(3, 3, true).rotate(rotation) * f3;
 		f4 = Matrix(3, 3, true).rotate(rotation) * f4;
 
-		Object* portalFrame = new Object(*this, testModel, blankMaterial, RenderType::STATIC, HitboxType::MESH);
+		Object* portalFrame = new Object(*this, testModel, blankMaterial);
 		portalFrame->setPosition(pos + f1);
-		portalFrame->setScale(frameScale, (pHeight / 2) + frameScale, frameScale);
+		portalFrame->setScale(frameScale, frameScale, (pHeight / 2) + frameScale);
 		portalFrame->setRotation(rotation);
 		addObject(portalFrame);
 
-		portalFrame = new Object(*this, testModel, blankMaterial, RenderType::STATIC, HitboxType::MESH);
+		portalFrame = new Object(*this, testModel, blankMaterial);
 		portalFrame->setPosition(pos + f2);
-		portalFrame->setScale(frameScale, (pHeight / 2) + frameScale, frameScale);
+		portalFrame->setScale(frameScale, frameScale, (pHeight / 2) + frameScale);
 		portalFrame->setRotation(rotation);
 		addObject(portalFrame);
 
-		/*
-		portalFrame = new Object(*this, testModel, blankMaterial, RenderType::STATIC, HitboxType::MESH);
+		portalFrame = new Object(*this, testModel, blankMaterial);
 		portalFrame->setPosition(pos + f3);
 		portalFrame->setScale(pWidth / 2, frameScale, frameScale);
 		portalFrame->setRotation(rotation);
 		addObject(portalFrame);
-		//*/
 
-		portalFrame = new Object(*this, testModel, blankMaterial, RenderType::STATIC, HitboxType::MESH);
+		portalFrame = new Object(*this, testModel, blankMaterial);
 		portalFrame->setPosition(pos + f4);
 		portalFrame->setScale(pWidth / 2, frameScale, frameScale);
 		portalFrame->setRotation(rotation);
@@ -172,35 +184,31 @@ void World::test(){
 	}
 
 	// Set portal pairs
-	if(portals_.size() >= 2){
-		for(int i = 0; i < portals_.size() - 1; i++){
+	for(int i = 0; i < portals_.size() - 1; i++){
 
-			Portal* p1 = portals_[i];
+		Portal* p1 = portals_[i];
 
-			for(int j = i + 1; j < portals_.size(); j++){
+		for(int j = i + 1; j < portals_.size(); j++){
 
-				Portal* p2 = portals_[j];
+			Portal* p2 = portals_[j];
 
-				// Matching pair found
-				if(p1->getPortalNum() == p2->getPortalNum()){
+			// Matching pair found
+			if(p1->getPortalNum() == p2->getPortalNum()){
 
-					// Portals already paired
-					if(p1->getPairedPortal() != nullptr || p2->getPairedPortal() != nullptr)
-						ntw::warning("Extra portal found with duplicate portal number!");
-					else{
-						p1->setPairedPortal(p2);
-						p2->setPairedPortal(p1);
-					}
+				// Portals already paired
+				if(p1->getPairedPortal() != nullptr || p2->getPairedPortal() != nullptr)
+					ntw::warning("Extra portal found with duplicate portal number!");
+				else{
+					p1->setPairedPortal(p2);
+					p2->setPairedPortal(p1);
 				}
 			}
-
-			// Portal unpaired
-			if(p1->getPairedPortal() == nullptr)
-				ntw::warning("Unpaired portal found in world!");
 		}
+
+		// Portal unpaired
+		if(p1->getPairedPortal() == nullptr)
+			ntw::warning("Unpaired portal found in world!");
 	}
-	else
-		ntw::warning("Unpaired portal found in world!");
 
 	// Initialize player and add to object lists
 	Model* playerModel = new Model(ntw::getCube());
@@ -210,23 +218,31 @@ void World::test(){
 	objects_.push_back(player_);
 	physicsObjects_.push_back(player_);
 
+
 	// Initialize physics engine
 	physicsEngine_.init();
+
+	// Update portals and add to physics engine
+	for(Portal* p : portals_){
+		p->update();
+		physicsEngine_.addPortal(p);
+	}
 
 	initialized_ = true;
 }
 
-void World::update(float timeDelta, bool fullPhysicsUpdate){
+void World::update(float timeDelta, bool updatePhysics){
 	
 	// Update player movement
-	player_->updatePlayer(timeDelta);
+	player_->updatePlayer(timeDelta, updatePhysics);
 
 	// Update all objects
 	for(Object* obj : objects_)
 		obj->update(timeDelta);
 
 	// Update physics
-	physicsEngine_.update(timeDelta, fullPhysicsUpdate);
+	if(updatePhysics)
+		physicsEngine_.update();
 
 
 	// Set sound listener and orientation to player's
@@ -237,11 +253,16 @@ void World::update(float timeDelta, bool fullPhysicsUpdate){
 	//soundEngine_.playWorldSound();
 
 	// Set camera to player orientation after player physics update
-	camera_.position	= player_->getEyePosition();
+	if(updatePhysics){
+		camera_.position		= player_->getEyePosition();
+		camera_.velocity		= player_->getVelocity();
 
-	camera_.velocity	= player_->getVelocity();
-	camera_.yaw			= player_->getYaw();
-	camera_.pitch		= player_->getPitch();
+		camera_.rotationMatrix = player_->getPortalRotation().getTranspose();
+	}
+
+	camera_.velocity		= player_->getVelocity();
+	camera_.yaw				= player_->getYaw();
+	camera_.pitch			= player_->getPitch();
 
 }
 
@@ -268,7 +289,13 @@ void World::unload(){
 	}
 	*/
 
+	physicsEngine_.cleanup();
+
+	for(Object* object : objects_)
+		delete object;
+
 	objects_.clear();
+	physicsObjects_.clear();
 }
 
 
@@ -277,7 +304,7 @@ void World::addObject(Object* object){
 	objects_.push_back(object);
 
 	// Physics objects
-	if(object->getPhysicsType() == PhysicsType::DYNAMIC || object->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE)
+	if(object->getPhysicsType() == PhysicsType::RIGID_BODY || object->getPhysicsType() == PhysicsType::SIMPLE)
 		physicsObjects_.push_back((PhysicsObject*)object);
 
 
@@ -288,7 +315,7 @@ void World::addObject(Object* object){
 
 	// Initialize object in physics engine if necessary
 	if(object->getPhysicsType() != PhysicsType::NONE && physicsEngine_.isInitialized())
-		physicsEngine_.initObject(object);
+		physicsEngine_.addObject(object);
 }
 
 void World::removeObject(Object* object){
@@ -300,7 +327,7 @@ void World::removeObject(Object* object){
 		}
 	}
 
-	if(object->getPhysicsType() == PhysicsType::DYNAMIC || object->getPhysicsType() == PhysicsType::DYNAMIC_SIMPLE){
+	if(object->getPhysicsType() == PhysicsType::SIMPLE || object->getPhysicsType() == PhysicsType::RIGID_BODY){
 		for(auto i = physicsObjects_.begin(); i != physicsObjects_.end(); i++){
 			if(object == (*i)){
 				physicsObjects_.erase(i);
@@ -310,6 +337,8 @@ void World::removeObject(Object* object){
 	}
 
 	physicsEngine_.removeObject(object);
+
+	delete object;
 }
 
 

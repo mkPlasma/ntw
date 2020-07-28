@@ -160,6 +160,7 @@
     <ClCompile Include="source\physics\aabbTree.cpp" />
     <ClCompile Include="source\physics\constraints\constraint.cpp" />
     <ClCompile Include="source\physics\constraints\contactConstraint.cpp" />
+    <ClCompile Include="source\physics\physFunc.cpp" />
     <ClCompile Include="source\physics\physicsEngine.cpp" />
     <ClCompile Include="source\core\window.cpp" />
     <ClCompile Include="source\file\binStream.cpp" />
@@ -195,9 +196,10 @@
     <ClInclude Include="source\objects\portal.h" />
     <ClInclude Include="source\physics\aabbTree.h" />
     <ClInclude Include="source\physics\constraints\contactConstraint.h" />
+    <ClInclude Include="source\physics\physFunc.h" />
     <ClInclude Include="source\physics\satCollision.h" />
     <ClInclude Include="source\physics\physDefine.h" />
-    <ClInclude Include="source\physics\physEnum.h" />
+    <ClInclude Include="source\physics\physicsType.h" />
     <ClInclude Include="source\physics\constraints\constraint.h" />
     <ClInclude Include="source\physics\physicsEngine.h" />
     <ClInclude Include="source\file\binStream.h" />
