@@ -39,10 +39,10 @@ bool SATCollision::testCollision(){
 	return true;
 }
 
-bool SATCollision::testCollision(const SeparatingAxis& axis){
+bool SATCollision::testCollision(const SATSeparatingAxis& axis){
 	
 	// Check collision with previously found axis
-	if(axis.isFace){
+	if(!axis.isEdgePair){
 		const SATFace& f = axis.index1 != -1 ? hitbox1_.faces[axis.index1] : hitbox2_.faces[axis.index2];
 		Vec3 support = getSupportPoint(axis.index1 != -1 ? hitbox2_ : hitbox1_, -f.normal);
 
@@ -85,7 +85,7 @@ ContactManifold SATCollision::getContactPoints(){
 		c.obj2ContactGlobal = p2 + ((((p1 - p2) * n1) / (d2 * n1)) * d2);
 
 		c.normal = (c.obj2ContactGlobal - c.obj1ContactGlobal).unitVector();
-		setContactInfo(c);
+		setContactProperties(c);
 
 		// Create manifold and return
 		ContactManifold m;
@@ -149,9 +149,6 @@ ContactManifold SATCollision::getContactPoints(){
 	// Clip faces to get single contact points
 	vector<Vec3> points = clipFaces(hitbox1_, fi1, hitbox2_, fi2);
 
-	if(points.size() == 0)
-		ntw::warning("Face clipping did not generate any points!");
-
 	// Create manifold
 	ContactManifold m;
 	m.objects = {collider1_->parent, collider2_->parent};
@@ -173,7 +170,7 @@ ContactManifold SATCollision::getContactPoints(){
 		c.normal = normal;
 
 		// Set contact properties and check its validity before adding
-		if(setContactInfo(c))
+		if(setContactProperties(c))
 			m.contacts.push_back(c);
 	}
 
@@ -197,9 +194,9 @@ float SATCollision::queryFaces(const Hitbox& hitbox1, const Hitbox& hitbox2, boo
 			maxDistance = distance;
 
 			// Set separating axis info
+			separatingAxis_.isEdgePair = false;
 			separatingAxis_.index1 = useIndex1 ? i : -1;
 			separatingAxis_.index2 = !useIndex1 ? i : -1;
-			separatingAxis_.isFace = true;
 		}
 
 		// Smallest penetration distance over all features
@@ -247,9 +244,9 @@ float SATCollision::queryEdges(const Hitbox& hitbox1, const Hitbox& hitbox2){
 					maxDistance = distance;
 
 					// Set separating axis info
+					separatingAxis_.isEdgePair = true;
 					separatingAxis_.index1 = i;
 					separatingAxis_.index2 = j;
-					separatingAxis_.isFace = false;
 				}
 
 				// Smallest penetration distance over all features
@@ -315,7 +312,7 @@ bool SATCollision::isMinkowskiFace(const Vec3& a, const Vec3& b, const Vec3& c, 
 	return cba * dba < 0 && adc * bdc < 0 && cba * bdc > 0;
 }
 
-bool SATCollision::setContactInfo(Contact& c){
+bool SATCollision::setContactProperties(Contact& c){
 
 	c.depth = (c.obj2ContactGlobal - c.obj1ContactGlobal) * c.normal;
 
@@ -338,4 +335,16 @@ bool SATCollision::setContactInfo(Contact& c){
 	c.tangent2 = crossProduct(c.normal, c.tangent1);
 
 	return true;
+}
+
+void SATCollision::setContactInfo(const SATContactInfo& contactInfo){
+	contactInfo_ = contactInfo;
+}
+
+SATSeparatingAxis SATCollision::getSeparatingAxis(){
+	return separatingAxis_;
+}
+
+SATContactInfo SATCollision::getContactInfo(){
+	return contactInfo_;
 }

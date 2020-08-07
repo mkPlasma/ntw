@@ -20,7 +20,11 @@ void PhysicsEngine::checkCollisions(){
 	contactManifolds_.clear();
 	contactConstraints_.clear();
 
-	// Make portal collisions out of date
+
+	// Make SAT collisions and portal collisions out of date
+	for(auto& i : satCollisions_)
+		i.second.updated = false;
+
 	for(auto& i : portalCollisions_)
 		i.second.updated = false;
 
@@ -29,37 +33,40 @@ void PhysicsEngine::checkCollisions(){
 	aabbTree_.update();
 	const vector<AABBPair>& overlappingAABBs = aabbTree_.getOverlapping();
 
-	// Check for and resolve collisions
-	for(const AABBPair& pair : overlappingAABBs)
-		resolveCollision(pair);
+
+	// Check for and resolve collisions, first with portals then with objects
+	for(int i = 0; i < 2; i++){
+		for(const AABBPair& pair : overlappingAABBs){
+
+			// Get objects
+			Object* object1 = pair.aabb1.collider->parent;
+			Object* object2 = pair.aabb2.collider->parent;
+
+			// Portal collision
+			if(!object1 || !object2){
+				if(i == 0)
+					resolvePortalCollision(!object1 ? object2 : object1, !object1 ? pair.aabb1.collider->portal : pair.aabb2.collider->portal);
+			}
+			else if(i == 1)
+				resolveCollision(pair);
+		}
+	}
 
 
-	// Remove out-of-date portal collisions
+	// Remove out-of-date SAT collisions and portal collisions
+	for(auto i = satCollisions_.begin(); i != satCollisions_.end();){
+		if(!i->second.updated)
+			i = satCollisions_.erase(i);
+		else
+			i++;
+	}
+
 	for(auto i = portalCollisions_.begin(); i != portalCollisions_.end();){
 		if(!i->second.updated)
 			i = portalCollisions_.erase(i);
 		else
 			i++;
 	}
-
-	// Start resolving collisions from static objects
-	/*
-	Object* active = nullptr;
-	bool finished = false;
-
-	while(!finished){
-		for(auto i = aabbColliding.begin(); i != aabbColliding.end(); ){
-
-			// No active object, look for a static object
-			if(active == nullptr){
-				if((*i).object1->getPhysicsType() == PhysicsType::STATIC)	active = (*i).object1;
-				if((*i).object2->getPhysicsType() == PhysicsType::STATIC)	active = (*i).object2;
-			}
-
-			// Resolve 
-		}
-	}
-	*/
 }
 
 void PhysicsEngine::resolveCollision(const AABBPair& pair){
@@ -71,25 +78,72 @@ void PhysicsEngine::resolveCollision(const AABBPair& pair){
 	// Get objects
 	Object* object1 = collider1->parent;
 	Object* object2 = collider2->parent;
-
-
-	// Portal collisions
-	if(!object1 || !object2){
-		resolvePortalCollision(!object1 ? object2 : object1, !object1 ? collider1->portal : collider2->portal);
-		return;
-	}
+	ObjectPair objectPair = {object1, object2};
 
 
 	// Create collision tester
 	SATCollision collisionTest(collider1, collider2);
 
-	// No collision, return
-	if(!collisionTest.testCollision())
-		return;
 
+	// Check if there is a cached collision result
+	auto i = satCollisions_.find(objectPair);
 
-	// If there is a collision, push back the objects
-	ContactManifold m = collisionTest.getContactPoints();
+	ContactManifold m;
+
+	if(i != satCollisions_.end()){
+		
+		SATCollisionInfo& info = i->second;
+
+		// Check if cached result is valid
+		if(info.collided){
+			// Objects collided, try to generate the same contact points
+			collisionTest.setContactInfo(info.contactInfo);
+			m = collisionTest.getContactPoints();
+
+			// No contacts generated, redo test
+			if(m.contacts.empty()){
+				if(!collisionTest.testCollision()){
+					// No collision, invalidate contact info and return
+					info.updated = false;
+					return;
+				}
+
+				// Objects are colliding
+				m = collisionTest.getContactPoints();
+			}
+		}
+		else{
+			// Objects did not collide, do test with separating axis
+			if(!collisionTest.testCollision(info.separatingAxis))
+				return;
+
+			// Collision found, invalidate separating axis
+			m = collisionTest.getContactPoints();
+			info.updated = false;
+		}
+	}
+
+	// No cached result, test collision and cache
+	else{
+		SATCollisionInfo info;
+		info.collided = collisionTest.testCollision();
+
+		if(!info.collided){
+			// No collision, cache separating axis and return
+			info.separatingAxis = collisionTest.getSeparatingAxis();
+			satCollisions_.emplace(objectPair, info);
+
+			return;
+		}
+
+		// Collision found, cache contact info
+		m = collisionTest.getContactPoints();
+
+		info.contactInfo = collisionTest.getContactInfo();
+		satCollisions_.emplace(objectPair, info);
+	}
+
+	
 
 	// Check output valididty
 	if(m.contacts.empty())
@@ -182,6 +236,11 @@ void PhysicsEngine::resolveCollision(const AABBPair& pair){
 }
 
 void PhysicsEngine::resolvePortalCollision(Object* object, Portal* portal){
+
+	// Ignore if object is not within portal clip planes
+	// In other words, object collides with the portal AABB but is beside it
+	if(!portal->isPointWithinClipPlanes(object->getPosition()))
+		return;
 
 	ObjectPortalPair pair = {object, portal};
 

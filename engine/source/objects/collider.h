@@ -11,4 +11,6 @@ struct Collider{
 
 	Object* parent;
 	Portal* portal;
+
+	Collider() : hitbox(nullptr), parent(nullptr), portal(nullptr) {}
 };

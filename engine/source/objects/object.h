@@ -21,7 +21,7 @@ class Object;
 
 class World;
 struct Collider;
-struct ContactInfo;
+struct ObjectContactInfo;
 
 
 class Object{
@@ -44,7 +44,7 @@ protected:
 	Hitbox transformedHitboxSAT_;
 	bool hitboxCached_;
 
-	vector<ContactInfo> contacts_;
+	vector<ObjectContactInfo> contacts_;
 
 	ALuint soundSource_;
 
@@ -93,7 +93,7 @@ public:
 
 	bool cacheTransformedHitbox();
 
-	void addContact(ContactInfo contact);
+	void addContact(ObjectContactInfo contact);
 
 
 
@@ -119,5 +119,5 @@ public:
 	ALuint getSoundSource() const;
 	bool hasSoundSource() const;
 
-	const vector<ContactInfo>& getContacts() const;
+	const vector<ObjectContactInfo>& getContacts() const;
 };

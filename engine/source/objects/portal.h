@@ -21,6 +21,10 @@ struct Collider;
 
 
 class Portal{
+	struct ClipPlane{
+		Vec3 position;
+		Vec3 normal;
+	};
 
 	int portalNum_;
 	int portalNumBack_;
@@ -40,6 +44,8 @@ class Portal{
 	Matrix transformationMatrix_;
 	Matrix rotationMatrix_;
 
+	vector<ClipPlane> clipPlanes_;
+
 	Collider collider_;
 
 public:
@@ -48,6 +54,7 @@ public:
 	void update();
 
 	bool isPointInFront(const Vec3& v);
+	bool isPointWithinClipPlanes(const Vec3& v);
 
 	Vec3 getTransformedVector(const Vec3& v);
 	Vec3 getRotatedVector(const Vec3& v);

@@ -18,11 +18,11 @@ void Renderer::initWorldRendering(World* world){
 
 
 	// Initialize main world framebuffer
-	fbWorld_ = createFrameBuffer(gOptions_.resolutionX, gOptions_.resolutionY, false, true, gOptions_.msaaSamples);
+	fbWorld_ = createFrameBuffer(gOptions_.resolutionX, gOptions_.resolutionY, false, true, false, gOptions_.msaaSamples);
 
 	// Secondary framebuffer for portal rendering
 	if(!world->getPortals().empty())
-		fbWorldPortal_ = createFrameBuffer(gOptions_.resolutionX, gOptions_.resolutionY, false, true, gOptions_.msaaSamples);
+		fbWorldPortal_ = createFrameBuffer(gOptions_.resolutionX, gOptions_.resolutionY, false, true, true, gOptions_.msaaSamples);
 
 
 	// Batch objects and write data
@@ -48,6 +48,21 @@ void Renderer::initWorldRendering(World* world){
 	for(Portal* p : portals)
 		addPortalBatch(p);
 
+
+	// Initialize skybox
+	vector<float> cubeVerts = ntw::getCube().vertices;
+
+	// Create VAO
+	glGenVertexArrays(1, &skyboxVao_);
+	glBindVertexArray(skyboxVao_);
+
+	// Create vertex buffer
+	glGenBuffers(1, &skyboxVBuffer_);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBuffer_);
+
+	// Write data
+	glBufferData(GL_ARRAY_BUFFER, cubeVerts.size() * sizeof(float), cubeVerts.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -233,7 +248,7 @@ void Renderer::addPortalBatch(Portal* portal){
 	PortalBatch batch;
 	batch.portal = portal;
 	batch.vaoId = vao;
-	batch.bufferIds = {vBuffer/*, nmBuffer*/};
+	batch.vBufferId = vBuffer;
 
 	portalBatches_.push_back(batch);
 }
@@ -246,12 +261,10 @@ void Renderer::cleanupWorldRendering(){
 		for(ObjectBatch& batch : group.batches){
 
 			// Delete buffers
-			vector<unsigned int>& buffers = batch.bufferIds;
+			for(GLuint buffer : batch.bufferIds)
+				glDeleteBuffers(1, &buffer);
 
-			for(auto j = buffers.begin(); j != buffers.end(); j++)
-				glDeleteBuffers(1, (const GLuint*)&(*j));
-
-			glDeleteVertexArrays(1, (const GLuint*)&batch.vaoId);
+			glDeleteVertexArrays(1, &batch.vaoId);
 		}
 	}
 
@@ -260,17 +273,16 @@ void Renderer::cleanupWorldRendering(){
 
 	// Delete portal VAOs
 	for(PortalBatch& batch : portalBatches_){
-
-		// Delete buffers
-		vector<unsigned int>& buffers = batch.bufferIds;
-
-		for(auto j = buffers.begin(); j != buffers.end(); j++)
-			glDeleteBuffers(1, (const GLuint*)&(*j));
-
-		glDeleteVertexArrays(1, (const GLuint*)&batch.vaoId);
+		glDeleteVertexArrays(1, &batch.vaoId);
+		glDeleteBuffers(1, &batch.vBufferId);
 	}
 
 	portalBatches_.clear();
+
+
+	// Delete skybox VAO
+	glDeleteBuffers(1, &skyboxVao_);
+	glDeleteVertexArrays(1, &skyboxVBuffer_);
 
 
 	// Delete framebuffers
@@ -284,29 +296,29 @@ void Renderer::cleanupWorldRendering(){
 	glDeleteFramebuffers(1, &fbWorldPortal_.id);
 }
 
-Matrix Renderer::getViewProj(const Camera& camera){
+void Renderer::setViewProj(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly){
 
-	Matrix viewProj = getViewProjSub(camera);
+	setViewProjSub(camera, viewProj, viewProjRotOnly);
 
 	// Apply projection matrix
-	viewProj *= Matrix::projectionMatrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, NTW_NEAR_CLIP, NTW_FAR_CLIP);
+	Matrix proj = Matrix::projectionMatrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, NTW_NEAR_CLIP, NTW_FAR_CLIP);
 
-	return viewProj;
+	viewProj *= proj;
+	viewProjRotOnly *= proj;
 }
 
-Matrix Renderer::getViewProj(const Camera& camera, Vec3 clipPlaneNormal, float clipPlaneDistance){
+void Renderer::setViewProj(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly, Vec3 clipPlaneNormal, float clipPlaneDistance){
 
-	Matrix viewProj = getViewProjSub(camera);
+	setViewProjSub(camera, viewProj, viewProjRotOnly);
 
 	// Apply projection matrix with oblique near clipping plane
-	viewProj *= Matrix::projectionMatrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, NTW_FAR_CLIP, clipPlaneNormal, clipPlaneDistance);
+	Matrix proj = Matrix::projectionMatrix((float)gOptions_.fov, (float)gOptions_.resolutionX / gOptions_.resolutionY, NTW_FAR_CLIP, clipPlaneNormal, clipPlaneDistance);
 
-	return viewProj;
+	viewProj *= proj;
+	viewProjRotOnly *= proj;
 }
 
-Matrix Renderer::getViewProjSub(const Camera& camera){
-
-	Matrix viewProj;
+void Renderer::setViewProjSub(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly){
 
 	// View location, swap y and z axes and negate y
 	viewProj.translate(-camera.position[0], -camera.position[1], -camera.position[2]);
@@ -320,7 +332,11 @@ Matrix Renderer::getViewProjSub(const Camera& camera){
 
 	viewProj.transpose();
 
-	return viewProj;
+	// Matrix without translation
+	viewProjRotOnly = viewProj;
+	viewProjRotOnly.set(3, 0, 0);
+	viewProjRotOnly.set(3, 1, 0);
+	viewProjRotOnly.set(3, 2, 0);
 }
 
 void Renderer::renderWorld(int time, float physTimeDelta){
@@ -354,14 +370,23 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 	}
 
 
-	Matrix viewProj = getViewProj(camera);
-	renderWorldSub(camera, viewProj, time, physTimeDelta);
+	Matrix viewProj;
+	Matrix viewProjRotOnly;
+	setViewProj(camera, viewProj, viewProjRotOnly);
+
+	renderWorldSub(camera, viewProj, viewProjRotOnly, time, physTimeDelta);
 
 	// Check portal visibility
 	vector<PortalBatch> visiblePortalBatches;
 	//Matrix viewProjTranspose = viewProj.getTranspose();
 
 	for(const PortalBatch& batch : portalBatches_){
+
+		// Distance check to prevent clipping when moving in and out of portal
+		if(abs((batch.portal->getPosition() - camera.position) * batch.portal->getNormal()) < NTW_NEAR_CLIP * 2){
+			visiblePortalBatches.push_back(batch);
+			continue;
+		}
 
 		const vector<Vec3> verts = batch.portal->getVertices();
 
@@ -448,7 +473,9 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 		distance = distance < NTW_NEAR_CLIP * 2 ? NTW_NEAR_CLIP * 2 : distance;
 
 		// Get clipped viewProj matrix
-		Matrix viewProjPortal = getViewProj(portalCamera, -planeNormal, -distance);
+		Matrix viewProjPortal;
+		Matrix viewProjRotOnlyPortal;
+		setViewProj(portalCamera, viewProjPortal, viewProjRotOnlyPortal, -planeNormal, -distance);
 
 
 		// Clear portal framebuffer
@@ -465,11 +492,11 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 		glBlitFramebuffer(0, 0, gOptions_.resolutionX, gOptions_.resolutionY, 0, 0, gOptions_.resolutionX, gOptions_.resolutionY, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
 		glDisable(GL_MULTISAMPLE);
-
+		
 
 		// Render world from pair portal perspective to portal framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, fbWorldPortal_.id);
-		renderWorldSub(portalCamera, viewProjPortal, time, physTimeDelta);
+		renderWorldSub(portalCamera, viewProjPortal, viewProjRotOnlyPortal, time, physTimeDelta);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, fbWorld_.id);
 
@@ -502,14 +529,8 @@ void Renderer::renderWorld(int time, float physTimeDelta){
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Renderer::renderWorldSub(const Camera& camera, int time, float physTimeDelta){
-	Matrix viewProj = getViewProj(camera);
-	renderWorldSub(camera, viewProj, time, physTimeDelta);
-}
+void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, const Matrix& viewProjRotOnly, int time, float physTimeDelta){
 
-void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int time, float physTimeDelta){
-
-	// Enable properties
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
@@ -596,16 +617,35 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindVertexArray(0);
 
-	// Disable properties
-	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
+
+
+	// Render skybox
+	ShaderProgram& shader = shaderPrograms_["skybox"];
+	shader.use();
+
+	glUniform1i(shader.getUniformLocation("time"), time);
+	glUniformMatrix4fv(shader.getUniformLocation("viewProj"), 1, GL_FALSE, viewProjRotOnly.getValuesPtr());
+
+	glDepthFunc(GL_LEQUAL);
+
+	glBindVertexArray(skyboxVao_);
+
+	glEnableVertexAttribArray(0);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+
+	glDisableVertexAttribArray(0);
+	glBindVertexArray(0);
+
+
+	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_MULTISAMPLE);
 
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 
 	// TEMPORARY!
+	/*
 	vector<ContactManifold> collisions = world_->getPhysicsEngine().getContactManifolds();
 
 	shaderPrograms_["wireframe"].use();
@@ -687,4 +727,5 @@ void Renderer::renderWorldSub(const Camera& camera, const Matrix& viewProj, int 
 	glDeleteVertexArrays(1, &vao);
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	*/
 }

@@ -29,6 +29,34 @@ struct ObjectPair{
 };
 
 
+// Info on found separating axis for reuse next frame
+struct SATSeparatingAxis{
+	int index1;
+	int index2;
+	bool isEdgePair;
+};
+
+
+// Store distance and index of queried faces/edges
+struct SATContactInfo{
+	float distance;
+	bool isEdgePair;
+	int index1;
+	int index2;
+};
+
+
+// Cache results of SAT collision tests
+struct SATCollisionInfo{
+	bool updated;
+	bool collided;
+	SATSeparatingAxis separatingAxis;
+	SATContactInfo contactInfo;
+
+	SATCollisionInfo() : updated(true) {}
+};
+
+
 // Single contact between two objects
 struct Contact{
 	Vec3 normal;
@@ -37,10 +65,6 @@ struct Contact{
 
 	Vec3 obj1ContactGlobal;
 	Vec3 obj2ContactGlobal;
-
-	// Obsolete for SAT collisions
-	Vec3 obj1ContactLocal;
-	Vec3 obj2ContactLocal;
 
 	Vec3 obj1ContactVector;
 	Vec3 obj2ContactVector;
@@ -78,7 +102,7 @@ struct ContactManifold{
 
 
 // Info on collisions given to objects
-struct ContactInfo{
+struct ObjectContactInfo{
 	Object* object;
 	Vec3 normal;
 };

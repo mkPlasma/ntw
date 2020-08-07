@@ -71,7 +71,7 @@ void Player::updatePlayer(float timeDelta, bool updatePhysics){
 
 
 	// Update movement only during physics update
-	if(!updatePhysics){
+	if(updatePhysics){
 
 		// Movement
 		float maxSpeed = 3;
@@ -104,7 +104,7 @@ void Player::updatePlayer(float timeDelta, bool updatePhysics){
 				float speed = (velocity_ - verticalVelocity).magnitude();
 
 				// Adjust maximum speed based on collisions
-				//for(const ContactInfo& c : contacts_)
+				//for(const ObjectContactInfo& c : contacts_)
 				//	if(c.object->getPhysicsType() == PhysicsType::STATIC)
 				//		moveDir -= moveDir.clampedProjOn(portalRotation_ * -c.normal);
 
@@ -151,7 +151,7 @@ void Player::updatePlayer(float timeDelta, bool updatePhysics){
 			heldObject_ = nullptr;
 		}
 		else{
-			const float maxDistance = 5;
+			const float maxDistance = 2;
 			const float maxMass = 10;
 
 			// Cast ray and get closest object
@@ -198,13 +198,12 @@ void Player::updatePlayer(float timeDelta, bool updatePhysics){
 		heldObject_->setVelocity((newPosition - heldObject_->getPosition()) / NTW_PHYS_TIME_DELTA);
 
 		// Rotation
-		heldObject_->setAngularVelocity(Vec3(0, 0, ntw::toRadians(yawDifference_) / NTW_PHYS_TIME_DELTA));
+		heldObject_->setAngularVelocity(portalRotation_ * Vec3(0, 0, ntw::toRadians(yawDifference_) / NTW_PHYS_TIME_DELTA));
 	}
 }
 
 void Player::updateEyePosition(){
-	eyePosition_ = position_;
-	eyePosition_[2] = position_[2] + (NTW_PLAYER_EYE_LEVEL - 0.5f) * scale_[2];
+	eyePosition_ = position_ - (gravityDirection_ * (scale_[2] / 2) * NTW_PLAYER_EYE_LEVEL);
 }
 
 void Player::updateLookVectors(){

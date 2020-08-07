@@ -10,7 +10,10 @@
 
 
 // Margin to enlarge parent AABBs in AABB tree by
-#define NTW_AABB_MARGIN 0.2f;
+#define NTW_AABB_MARGIN 0.2f
+
+// Margin to enlarge portal AABBs by
+#define NTW_AABB_PORTAL_MARGIN 0.25f
 
 
 // Maximum number of constraint resolution iterations for rigid bodies

@@ -57,4 +57,6 @@ public:
 	float magnitude() const;
 	Quaternion unitQuaternion() const;
 	Quaternion& normalize();
+
+	bool isNan() const;
 };

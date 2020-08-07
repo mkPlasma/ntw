@@ -38,7 +38,7 @@ class Renderer{
 		// VAO data
 		GLuint vaoId;
 		int numVertices;
-		vector<unsigned int> bufferIds;
+		vector<GLuint> bufferIds;
 	};
 
 	struct BatchGroup{
@@ -51,7 +51,7 @@ class Renderer{
 
 		// VAO data
 		GLuint vaoId;
-		vector<unsigned int> bufferIds;
+		GLuint vBufferId;
 	};
 
 	struct Framebuffer{
@@ -66,8 +66,8 @@ class Renderer{
 	unordered_map<string, ShaderProgram> shaderPrograms_;
 
 	// Screen rendering
-	GLuint screenVAO;
-	GLuint screenVBuffer;
+	GLuint screenVao_;
+	GLuint screenVBuffer_;
 
 	ShaderProgram screenShader_;
 
@@ -91,6 +91,13 @@ class Renderer{
 	// World portal batches
 	vector<PortalBatch> portalBatches_;
 
+	// Skybox VAO and buffer indices
+	GLuint skyboxVao_;
+	GLuint skyboxVBuffer_;
+
+
+	Framebuffer createFrameBuffer(int width, int height, bool useMipMap = false, bool useDepthBuffer = false, bool useStencilBuffer = false, int msaaSamples = -1);
+
 
 	// World rendering
 	void addObjectToBatchGroups(Object* object);
@@ -100,18 +107,21 @@ class Renderer{
 
 	void addPortalBatch(Portal* portal);
 
-	Matrix getViewProj(const Camera& camera);
-	Matrix getViewProj(const Camera& camera, Vec3 clipPlaneNormal, float clipPlaneDistance);
-	Matrix getViewProjSub(const Camera& camera);
+	void setViewProj(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly);
+	void setViewProj(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly, Vec3 clipPlaneNormal, float clipPlaneDistance);
+	void setViewProjSub(const Camera& camera, Matrix& viewProj, Matrix& viewProjRotOnly);
 
+	// Render world, then portals, recursively
+	void renderWorld(int time, float physTimeDelta, int iterations);
+
+	// Render all world elements except for portals
+	void renderWorldSub(const Camera& camera, const Matrix& viewProj, const Matrix& viewProjRotOnly, int time, float physTimeDelta);
 
 public:
 	Renderer(GraphicsOptions& gOptions);
 
 	void init();
 	void destroy();
-
-	Framebuffer createFrameBuffer(int width, int height, bool useMipMap = false, bool useDepthBuffer = false, int msaaSamples = -1);
 
 	void render(int time);
 
@@ -124,8 +134,4 @@ public:
 
 	// Complete world render function
 	void renderWorld(int time, float physTimeDelta);
-
-	// Render all world elements except for portals
-	void renderWorldSub(const Camera& camera, int time, float physTimeDelta);
-	void renderWorldSub(const Camera& camera, const Matrix& viewProj, int time, float physTimeDelta);
 };

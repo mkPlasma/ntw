@@ -47,9 +47,8 @@ void World::test(){
 	*/
 
 	Object* obj1 = new Object(*this, sphereModel, sphereMaterial);
-	obj1->setPosition(-3, 0, 0);
-	obj1->setScale(0.5);
-	obj1->setRotation(15, 15, 15);
+	obj1->setPosition(-1, 2, -2);
+	obj1->setScale(2);
 	//addObject(obj1);
 
 	Object* obj2 = new Object(*this, testModel, testMaterial);
@@ -85,13 +84,12 @@ void World::test(){
 
 
 	const int c1 = 1;
-	const int c2 = 1;
+	const int c2 = 3;
 
 	for(float x = 0; x < c1; x++){
 		for(float y = 0; y < c1; y++){
 			for(float z = 0; z < c2; z++){
-				PhysicsObject* physObj1 = new PhysicsObject(*this, testModel, boxMaterial, 1);
-				//Object* physObj1 = new Object(*this, testModel, testMaterial, RenderType::STATIC, HitboxType::MESH);
+				PhysicsObject* physObj1 = new PhysicsObject(*this, testModel, boxMaterial, 1, PhysicsType::RIGID_BODY);
 				physObj1->setPosition(0 + x - c1 / 2, 4 + y - c1 / 2, z  * 0.75f);
 				//physObj1->rotate(0, -30, 0);
 				//physObj1->rotate(0, 30, 0);
@@ -139,7 +137,7 @@ void World::test(){
 	const float pWidth = 1.5f;
 	const float pHeight = 2.1f;
 	const float frameScale = 0.05f;
-
+	
 	for(int i = 0; i < testPortalPositions.size(); i ++){
 
 		Vec3 pos = testPortalPositions[i];
@@ -182,45 +180,45 @@ void World::test(){
 		portalFrame->setRotation(rotation);
 		addObject(portalFrame);
 	}
-
+	
 	// Set portal pairs
-	for(int i = 0; i < portals_.size() - 1; i++){
+	if(portals_.size() > 1){
+		for(int i = 0; i < portals_.size() - 1; i++){
 
-		Portal* p1 = portals_[i];
+			Portal* p1 = portals_[i];
 
-		for(int j = i + 1; j < portals_.size(); j++){
+			for(int j = i + 1; j < portals_.size(); j++){
 
-			Portal* p2 = portals_[j];
+				Portal* p2 = portals_[j];
 
-			// Matching pair found
-			if(p1->getPortalNum() == p2->getPortalNum()){
+				// Matching pair found
+				if(p1->getPortalNum() == p2->getPortalNum()){
 
-				// Portals already paired
-				if(p1->getPairedPortal() != nullptr || p2->getPairedPortal() != nullptr)
-					ntw::warning("Extra portal found with duplicate portal number!");
-				else{
-					p1->setPairedPortal(p2);
-					p2->setPairedPortal(p1);
+					// Portals already paired
+					if(p1->getPairedPortal() != nullptr || p2->getPairedPortal() != nullptr)
+						ntw::warning("Extra portal found with duplicate portal number!");
+					else{
+						p1->setPairedPortal(p2);
+						p2->setPairedPortal(p1);
+					}
 				}
 			}
-		}
 
-		// Portal unpaired
-		if(p1->getPairedPortal() == nullptr)
-			ntw::warning("Unpaired portal found in world!");
+			// Portal unpaired
+			if(p1->getPairedPortal() == nullptr)
+				ntw::warning("Unpaired portal found in world!");
+		}
 	}
+	else if(portals_.size() == 1)
+		ntw::warning("Unpaired portal found in world!");
 
 	// Initialize player and add to object lists
 	Model* playerModel = new Model(ntw::getCube());
 	setModelProperties(playerModel);
 
 	player_ = new Player(*this, playerModel, options_.control, window_);
-	objects_.push_back(player_);
-	physicsObjects_.push_back(player_);
+	addObject(player_);
 
-
-	// Initialize physics engine
-	physicsEngine_.init();
 
 	// Update portals and add to physics engine
 	for(Portal* p : portals_){
@@ -313,9 +311,8 @@ void World::addObject(Object* object){
 		renderer_.addObject(object);
 
 
-	// Initialize object in physics engine if necessary
-	if(object->getPhysicsType() != PhysicsType::NONE && physicsEngine_.isInitialized())
-		physicsEngine_.addObject(object);
+	// Initialize object in physics engine
+	physicsEngine_.addObject(object);
 }
 
 void World::removeObject(Object* object){

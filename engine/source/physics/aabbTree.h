@@ -16,6 +16,8 @@ struct AABB{
 	Vec3 upperBound;
 	Vec3 lowerBound;
 	bool isStatic;
+
+	AABB() : collider(nullptr) {}
 };
 
 struct AABBPair{
@@ -28,14 +30,19 @@ class AABBTree{
 
 public:
 	struct Node{
-		AABB aabb;
-		AABB aabbMargin;
+		AABB* aabb;
+		AABB* aabbMargin;
 		Node* parent;
 		Node* child1;
 		Node* child2;
 		bool branchChecked;
 
-		Node() : aabb(), parent(nullptr), child1(nullptr), child2(nullptr), branchChecked(false) {}
+		Node() : aabb(new AABB()), aabbMargin(nullptr), parent(nullptr), child1(nullptr), child2(nullptr), branchChecked(false) {}
+
+		~Node(){
+			delete aabb;
+			delete aabbMargin;
+		}
 
 		bool isLeaf(){
 			return child1 == nullptr;
@@ -65,6 +72,8 @@ private:
 	bool overlapping(AABB* aabb1, AABB* aabb2);
 
 public:
+	AABBTree();
+
 	void update();
 	void clear();
 

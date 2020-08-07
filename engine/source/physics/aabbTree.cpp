@@ -9,6 +9,10 @@ using std::min;
 using std::max;
 
 
+AABBTree::AABBTree() : root_(nullptr) {
+
+}
+
 void AABBTree::update(){
 
 	if(!root_)
@@ -24,8 +28,8 @@ void AABBTree::update(){
 	for(Node* node : invalid_){
 
 		// Update large AABB
-		node->aabbMargin.lowerBound = node->aabb.lowerBound - NTW_AABB_MARGIN;
-		node->aabbMargin.upperBound = node->aabb.upperBound + NTW_AABB_MARGIN;
+		node->aabbMargin->lowerBound = node->aabb->lowerBound - NTW_AABB_MARGIN;
+		node->aabbMargin->upperBound = node->aabb->upperBound + NTW_AABB_MARGIN;
 
 		// Remove and add again
 		removeNode(node, false);
@@ -39,16 +43,16 @@ void AABBTree::updateNode(Node* node){
 	if(node->isLeaf()){
 
 		// Update AABB is collider's parent object's hitbox has been updated
-		if(node->aabb.collider->parent && node->aabb.collider->parent->cacheTransformedHitbox()){
+		if(node->aabb->collider->parent && node->aabb->collider->parent->cacheTransformedHitbox()){
 			updateAABB(node);
 
 			// If AABB has moved outside margin, mark it invalid
-			if(	node->aabb.lowerBound[0] < node->aabbMargin.lowerBound[0] ||
-				node->aabb.lowerBound[1] < node->aabbMargin.lowerBound[1] ||
-				node->aabb.lowerBound[2] < node->aabbMargin.lowerBound[2] ||
-				node->aabb.upperBound[0] > node->aabbMargin.upperBound[0] ||
-				node->aabb.upperBound[1] > node->aabbMargin.upperBound[1] ||
-				node->aabb.upperBound[2] > node->aabbMargin.upperBound[2]){
+			if(	node->aabb->lowerBound[0] < node->aabbMargin->lowerBound[0] ||
+				node->aabb->lowerBound[1] < node->aabbMargin->lowerBound[1] ||
+				node->aabb->lowerBound[2] < node->aabbMargin->lowerBound[2] ||
+				node->aabb->upperBound[0] > node->aabbMargin->upperBound[0] ||
+				node->aabb->upperBound[1] > node->aabbMargin->upperBound[1] ||
+				node->aabb->upperBound[2] > node->aabbMargin->upperBound[2]){
 
 				invalid_.push_back(node);
 			}
@@ -64,29 +68,37 @@ void AABBTree::updateNode(Node* node){
 
 void AABBTree::updateAABB(Node* node){
 
-	AABB& aabb = node->aabb;
+	AABB* aabb = node->aabb;
 
 	// Leaf node, update based on AABB's collider
 	if(node->isLeaf()){
 
 		// Min/max coordinate values
-		aabb.lowerBound = std::numeric_limits<float>::max();
-		aabb.upperBound = -aabb.lowerBound;
+		aabb->lowerBound = std::numeric_limits<float>::max();
+		aabb->upperBound = -aabb->lowerBound;
+
+		bool isPortal = aabb->collider->portal;
 
 		// Get transformed collider vertices or portal vertices
-		const vector<Vec3>& vertices =	aabb.collider->parent ? aabb.collider->hitboxTransformed.vertices :
-										aabb.collider->portal ? aabb.collider->portal->getVertices() :
-										aabb.collider->hitbox->vertices;
+		const vector<Vec3>& vertices =	aabb->collider->parent ? aabb->collider->hitboxTransformed.vertices :
+										isPortal ? aabb->collider->portal->getVertices() :
+										aabb->collider->hitbox->vertices;
 
 		// Get bounding coordinates
 		for(const Vec3& v : vertices){
-			aabb.lowerBound[0] = min(aabb.lowerBound[0], v[0]);
-			aabb.lowerBound[1] = min(aabb.lowerBound[1], v[1]);
-			aabb.lowerBound[2] = min(aabb.lowerBound[2], v[2]);
+			aabb->lowerBound[0] = min(aabb->lowerBound[0], v[0]);
+			aabb->lowerBound[1] = min(aabb->lowerBound[1], v[1]);
+			aabb->lowerBound[2] = min(aabb->lowerBound[2], v[2]);
 
-			aabb.upperBound[0] = max(aabb.upperBound[0], v[0]);
-			aabb.upperBound[1] = max(aabb.upperBound[1], v[1]);
-			aabb.upperBound[2] = max(aabb.upperBound[2], v[2]);
+			aabb->upperBound[0] = max(aabb->upperBound[0], v[0]);
+			aabb->upperBound[1] = max(aabb->upperBound[1], v[1]);
+			aabb->upperBound[2] = max(aabb->upperBound[2], v[2]);
+		}
+
+		// Add margin for portals
+		if(isPortal){
+			aabb->lowerBound -= NTW_AABB_PORTAL_MARGIN;
+			aabb->upperBound += NTW_AABB_PORTAL_MARGIN;
 		}
 	}
 
@@ -94,14 +106,14 @@ void AABBTree::updateAABB(Node* node){
 	else{
 		for(int i = 0; i < 3; i++){
 
-			// Use enlarged AABB for children that are leaves
-			float cl1 = node->child1->isLeaf() ? node->child1->aabbMargin.lowerBound[i] : node->child1->aabb.lowerBound[i];
-			float cl2 = node->child2->isLeaf() ? node->child2->aabbMargin.lowerBound[i] : node->child2->aabb.lowerBound[i];
-			float cu1 = node->child1->isLeaf() ? node->child1->aabbMargin.upperBound[i] : node->child1->aabb.upperBound[i];
-			float cu2 = node->child2->isLeaf() ? node->child2->aabbMargin.upperBound[i] : node->child2->aabb.upperBound[i];
+			// Use enlarged AABB for children that have them
+			float cl1 = node->child1->aabbMargin ? node->child1->aabbMargin->lowerBound[i] : node->child1->aabb->lowerBound[i];
+			float cl2 = node->child2->aabbMargin ? node->child2->aabbMargin->lowerBound[i] : node->child2->aabb->lowerBound[i];
+			float cu1 = node->child1->aabbMargin ? node->child1->aabbMargin->upperBound[i] : node->child1->aabb->upperBound[i];
+			float cu2 = node->child2->aabbMargin ? node->child2->aabbMargin->upperBound[i] : node->child2->aabb->upperBound[i];
 
-			aabb.lowerBound[i] = min(cl1, cl2);
-			aabb.upperBound[i] = max(cu1, cu2);
+			aabb->lowerBound[i] = min(cl1, cl2);
+			aabb->upperBound[i] = max(cu1, cu2);
 		}
 	}
 }
@@ -111,14 +123,14 @@ void AABBTree::clear(){
 	if(!root_)
 		return;
 
-	if(root_->isLeaf()){
+	if(root_->isLeaf())
 		delete root_;
-		root_ = nullptr;
-	}
 
 	// Recursively delete nodes
 	else
 		clear(root_);
+
+	root_ = nullptr;
 }
 
 void AABBTree::clear(Node* node){
@@ -140,8 +152,8 @@ void AABBTree::add(const Collider* collider){
 
 	// Create node for this collider
 	Node* node = new Node();
-	node->aabb.collider = collider;
-	node->aabb.isStatic = true;
+	node->aabb->collider = collider;
+	node->aabb->isStatic = true;
 
 	// Cache parent object's transformed hitbox and update AABB
 	if(collider->parent){
@@ -150,18 +162,19 @@ void AABBTree::add(const Collider* collider){
 
 		// Set non-static if necessary
 		if(collider->parent->getPhysicsType() != PhysicsType::STATIC)
-			node->aabb.isStatic = false;
+			node->aabb->isStatic = false;
 	}
 
 	// Collider belongs to portal
-	else{
+	else
 		updateAABB(node);
-		node->aabb.isStatic = true;
-	}
 
-	// Set large AABB
-	node->aabbMargin.lowerBound = node->aabb.lowerBound - NTW_AABB_MARGIN;
-	node->aabbMargin.upperBound = node->aabb.upperBound + NTW_AABB_MARGIN;
+	// Set large AABB for dynamic objects
+	if(!node->aabb->isStatic){
+		node->aabbMargin = new AABB();
+		node->aabbMargin->lowerBound = node->aabb->lowerBound - NTW_AABB_MARGIN;
+		node->aabbMargin->upperBound = node->aabb->upperBound + NTW_AABB_MARGIN;
+	}
 
 	// First node
 	if(!root_)
@@ -198,7 +211,7 @@ void AABBTree::addNode(Node* node, Node* parent){
 		newNode->child2->parent = newNode;
 
 		// Set this AABB as static if both children are static
-		newNode->aabb.isStatic = newNode->child1->aabb.isStatic && newNode->child2->aabb.isStatic;
+		newNode->aabb->isStatic = newNode->child1->aabb->isStatic && newNode->child2->aabb->isStatic;
 
 		updateAABB(newNode);
 	}
@@ -206,29 +219,29 @@ void AABBTree::addNode(Node* node, Node* parent){
 	// Parent is branch
 	else{
 		// Compute volume difference if node is added to either child
-		AABB& box	= node->aabb;
-		AABB& box1	= parent->child1->aabb;
-		AABB& box2	= parent->child2->aabb;
+		AABB* box	= node->aabb;
+		AABB* box1	= parent->child1->aabb;
+		AABB* box2	= parent->child2->aabb;
 
 		Vec3 aabbSize1 = Vec3(
-			box1.upperBound[0] - box1.lowerBound[0],
-			box1.upperBound[1] - box1.lowerBound[1],
-			box1.upperBound[2] - box1.lowerBound[2]
+			box1->upperBound[0] - box1->lowerBound[0],
+			box1->upperBound[1] - box1->lowerBound[1],
+			box1->upperBound[2] - box1->lowerBound[2]
 		);
 		Vec3 aabbNewSize1 = Vec3(
-			max(box.upperBound[0], box1.upperBound[0]) - min(box.lowerBound[0], box1.lowerBound[0]),
-			max(box.upperBound[1], box1.upperBound[1]) - min(box.lowerBound[1], box1.lowerBound[1]),
-			max(box.upperBound[2], box1.upperBound[2]) - min(box.lowerBound[2], box1.lowerBound[2])
+			max(box->upperBound[0], box1->upperBound[0]) - min(box->lowerBound[0], box1->lowerBound[0]),
+			max(box->upperBound[1], box1->upperBound[1]) - min(box->lowerBound[1], box1->lowerBound[1]),
+			max(box->upperBound[2], box1->upperBound[2]) - min(box->lowerBound[2], box1->lowerBound[2])
 		);
 		Vec3 aabbSize2 = Vec3(
-			box1.upperBound[0] - box1.lowerBound[0],
-			box1.upperBound[1] - box1.lowerBound[1],
-			box1.upperBound[2] - box1.lowerBound[2]
+			box1->upperBound[0] - box1->lowerBound[0],
+			box1->upperBound[1] - box1->lowerBound[1],
+			box1->upperBound[2] - box1->lowerBound[2]
 		);
 		Vec3 aabbNewSize2 = Vec3(
-			max(box.upperBound[0], box2.upperBound[0]) - min(box.lowerBound[0], box2.lowerBound[0]),
-			max(box.upperBound[1], box2.upperBound[1]) - min(box.lowerBound[1], box2.lowerBound[1]),
-			max(box.upperBound[2], box2.upperBound[2]) - min(box.lowerBound[2], box2.lowerBound[2])
+			max(box->upperBound[0], box2->upperBound[0]) - min(box->lowerBound[0], box2->lowerBound[0]),
+			max(box->upperBound[1], box2->upperBound[1]) - min(box->lowerBound[1], box2->lowerBound[1]),
+			max(box->upperBound[2], box2->upperBound[2]) - min(box->lowerBound[2], box2->lowerBound[2])
 		);
 
 		float volumeDifference1 = (aabbNewSize1[0] * aabbNewSize1[1] * aabbNewSize1[2]) - (aabbSize1[0] * aabbSize1[1] * aabbSize1[2]);
@@ -251,7 +264,7 @@ void AABBTree::remove(const Collider* collider){
 		return;
 
 	// Root node contains collider
-	if(root_->aabb.collider == collider)
+	if(root_->isLeaf() && root_->aabb->collider == collider)
 		removeNode(root_);
 
 	// Search for and remove collider node
@@ -263,7 +276,7 @@ void AABBTree::remove(const Collider* collider, Node* node){
 
 	// Check leaf children and recursively check branch children
 	if(node->child1->isLeaf()){
-		if(node->child1->aabb.collider == collider){
+		if(node->child1->aabb->collider == collider){
 			removeNode(node->child1);
 			return;
 		}
@@ -272,10 +285,9 @@ void AABBTree::remove(const Collider* collider, Node* node){
 		remove(collider, node->child1);
 
 	if(node->child2->isLeaf()){
-		if(node->child2->aabb.collider == collider){
+		if(node->child2->aabb->collider == collider)
 			removeNode(node->child2);
-			return;
-		}
+		return;
 	}
 	else
 		remove(collider, node->child2);
@@ -348,8 +360,8 @@ void AABBTree::resetBranchChecked(Node* node){
 	node->branchChecked = false;
 
 	if(!node->isLeaf()){
-		resetBranchChecked(node->child1);
-		resetBranchChecked(node->child2);
+		if(!node->child1->isLeaf()) resetBranchChecked(node->child1);
+		if(!node->child2->isLeaf()) resetBranchChecked(node->child2);
 	}
 }
 
@@ -359,32 +371,32 @@ void AABBTree::checkOverlap(Node* node1, Node* node2){
 	if(node1->isLeaf() && node2->isLeaf()){
 
 		// Add to list if overlapping
-		if(overlapping(&node1->aabb, &node2->aabb))
-			overlapping_.push_back({node1->aabb, node2->aabb});
+		if(overlapping(node1->aabb, node2->aabb))
+			overlapping_.push_back({*node1->aabb, *node2->aabb});
 
 		return;
 	}
 
-	// Check overlaps in children if they are branches and check leaf-branch overlaps
+	// Check overlaps in children
+	if(!node1->isLeaf() && !node1->branchChecked){
+		checkOverlap(node1->child1, node1->child2);
+		node1->branchChecked = true;
+	}
+
+	if(!node2->isLeaf() && !node2->branchChecked){
+		checkOverlap(node2->child1, node2->child2);
+		node2->branchChecked = true;
+	}
+
+
+	// Check overlaps between children
 	if(!node1->isLeaf()){
-		if(!node1->branchChecked){
-			checkOverlap(node1->child1, node1->child2);
-			node1->branchChecked = true;
-		}
-
 		if(!node2->isLeaf()){
-			if(!node2->branchChecked){
-				checkOverlap(node2->child1, node2->child2);
-				node2->branchChecked = true;
-			}
-
 			// Both nodes are branches, check them against each other
-			//if(overlapping(&node1->aabb, &node2->aabb)){
-				checkOverlap(node1->child1, node2->child1);
-				checkOverlap(node1->child1, node2->child2);
-				checkOverlap(node1->child2, node2->child1);
-				checkOverlap(node1->child2, node2->child2);
-			//}
+			checkOverlap(node1->child1, node2->child1);
+			checkOverlap(node1->child1, node2->child2);
+			checkOverlap(node1->child2, node2->child1);
+			checkOverlap(node1->child2, node2->child2);
 		}
 		else{
 			checkOverlap(node1->child1, node2);

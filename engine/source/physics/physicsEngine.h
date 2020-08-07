@@ -23,8 +23,6 @@ class World;
 
 class PhysicsEngine{
 
-	bool initialized_;
-
 	World& world_;
 
 	// Object lists
@@ -38,6 +36,7 @@ class PhysicsEngine{
 	vector<Constraint> constraints_;
 	vector<ContactConstraint> contactConstraints_;
 
+	unordered_map<ObjectPair, SATCollisionInfo, ObjectPair> satCollisions_;
 	unordered_map<ObjectPortalPair, PortalCollisionInfo, ObjectPortalPair> portalCollisions_;
 
 
@@ -47,8 +46,6 @@ class PhysicsEngine{
 
 public:
 	PhysicsEngine(World& world, vector<Object*>& objects, vector<PhysicsObject*>& physicsObjects);
-
-	void init();
 
 	void update();
 
@@ -62,8 +59,6 @@ public:
 
 	void addPortal(Portal* portal);
 	void removePortal(Portal* portal);
-
-	bool isInitialized();
 	
 	const vector<ContactManifold>& getContactManifolds();
 	const unordered_map<ObjectPortalPair, PortalCollisionInfo, ObjectPortalPair>& getPortalCollisions();

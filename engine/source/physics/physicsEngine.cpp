@@ -1,9 +1,8 @@
 #include"physicsEngine.h"
 
-#include"physDefine.h"
+#include"physics/physDefine.h"
 #include"core/error.h"
 #include"core/world.h"
-#include"physics/satCollision.h"
 #include"physics/physFunc.h"
 #include"objects/modelFunc.h"
 #include<algorithm>
@@ -12,17 +11,8 @@ using std::max;
 
 
 PhysicsEngine::PhysicsEngine(World& world, vector<Object*>& objects, vector<PhysicsObject*>& physicsObjects)
-	: world_(world), objects_(objects), dynamicObjects_(physicsObjects), initialized_(false) {
+	: world_(world), objects_(objects), dynamicObjects_(physicsObjects) {
 
-}
-
-void PhysicsEngine::init(){
-
-	// Initialize physics objects and add colliders to AABB tree
-	for(Object* obj : objects_)
-		addObject(obj);
-
-	initialized_ = true;
 }
 
 void PhysicsEngine::update(){
@@ -104,6 +94,9 @@ vector<Object*> PhysicsEngine::castRay(const Vec3& position, const Vec3& directi
 
 void PhysicsEngine::addObject(Object* object){
 
+	if(object->getPhysicsType() == PhysicsType::NONE)
+		return;
+
 	// Initialize physics
 	if(object->getPhysicsType() == PhysicsType::RIGID_BODY || object->getPhysicsType() == PhysicsType::SIMPLE)
 		((PhysicsObject*)object)->initPhysics();
@@ -117,6 +110,9 @@ void PhysicsEngine::addObject(Object* object){
 }
 
 void PhysicsEngine::removeObject(Object* object){
+
+	if(object->getPhysicsType() == PhysicsType::NONE)
+		return;
 
 	// Remove colliders from AABB tree
 	const vector<Collider>& colliders = object->getColliders();
@@ -133,10 +129,6 @@ void PhysicsEngine::removePortal(Portal* portal){
 	aabbTree_.remove(&portal->getCollider());
 }
 
-
-bool PhysicsEngine::isInitialized(){
-	return initialized_;
-}
 
 const vector<ContactManifold>& PhysicsEngine::getContactManifolds(){
 	return contactManifolds_;

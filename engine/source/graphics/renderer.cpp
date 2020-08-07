@@ -28,6 +28,11 @@ void Renderer::init(){
 	shaderPortal.link();
 	shaderPrograms_.emplace(shaderPortal.getName(), shaderPortal);
 
+	ShaderProgram shaderSkybox = ShaderProgram("skybox");
+	shaderSkybox.compile("skybox.vs", "skybox.fs");
+	shaderSkybox.link();
+	shaderPrograms_.emplace(shaderSkybox.getName(), shaderSkybox);
+
 	ShaderProgram shaderWireframe = ShaderProgram("wireframe");
 	shaderWireframe.compile("wireframe.vs", "wireframe.fs");
 	shaderWireframe.link();
@@ -45,12 +50,12 @@ void Renderer::init(){
 		1, 0
 	};
 
-	glGenVertexArrays(1, &screenVAO);
-	glBindVertexArray(screenVAO);
+	glGenVertexArrays(1, &screenVao_);
+	glBindVertexArray(screenVao_);
 
 	// Create vertex buffer
-	glGenBuffers(1, &screenVBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, screenVBuffer);
+	glGenBuffers(1, &screenVBuffer_);
+	glBindBuffer(GL_ARRAY_BUFFER, screenVBuffer_);
 
 	// Write data
 	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), vertices, GL_STATIC_DRAW);
@@ -73,8 +78,8 @@ void Renderer::destroy(){
 	shaderPrograms_.clear();
 
 	// Delete screen quad buffers
-	glDeleteBuffers(1, &screenVBuffer);
-	glDeleteVertexArrays(1, &screenVAO);
+	glDeleteBuffers(1, &screenVBuffer_);
+	glDeleteVertexArrays(1, &screenVao_);
 
 	// Delete screen framebuffer
 	glDeleteTextures(1, &fbScreen_.textureId);
@@ -82,7 +87,7 @@ void Renderer::destroy(){
 	glDeleteFramebuffers(1, &fbScreen_.id);
 }
 
-Renderer::Framebuffer Renderer::createFrameBuffer(int width, int height, bool useMipMap, bool useDepthBuffer, int msaaSamples){
+Renderer::Framebuffer Renderer::createFrameBuffer(int width, int height, bool useMipMap, bool useDepthBuffer, bool useStencilBuffer, int msaaSamples){
 
 	// Create and bind framebuffer
 	GLuint bufferId;
@@ -113,18 +118,18 @@ Renderer::Framebuffer Renderer::createFrameBuffer(int width, int height, bool us
 
 
 	// Create depth buffer
-	GLuint depthBufferId = -1;
+	GLuint depthStencilBufferId = -1;
 
-	if(useDepthBuffer){
-		glGenRenderbuffers(1, &depthBufferId);
-		glBindRenderbuffer(GL_RENDERBUFFER, depthBufferId);
+	if(useDepthBuffer || useStencilBuffer){
+		glGenRenderbuffers(1, &depthStencilBufferId);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthStencilBufferId);
 
 		if(msaaSamples == -1)
 			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 		else
 			glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaaSamples, GL_DEPTH_COMPONENT, width, height);
 
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferId);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthStencilBufferId);
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	}
 
@@ -135,7 +140,7 @@ Renderer::Framebuffer Renderer::createFrameBuffer(int width, int height, bool us
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	return {bufferId, textureId, depthBufferId};
+	return {bufferId, textureId, depthStencilBufferId};
 }
 
 void Renderer::render(int time){
@@ -159,7 +164,7 @@ void Renderer::render(int time){
 	// Set screen quad texture
 	glBindTexture(GL_TEXTURE_2D, fbScreen_.textureId);
 
-	glBindVertexArray(screenVAO);
+	glBindVertexArray(screenVao_);
 
 	// Render
 	glEnableVertexAttribArray(0);

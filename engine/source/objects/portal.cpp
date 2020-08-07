@@ -9,13 +9,7 @@ Portal::Portal(Vec3 position, Quaternion rotation, float width, float height, in
 	collider_.portal = this;
 }
 
-#include<iostream>
-using std::cout;
-using std::endl;
-
 void Portal::update(){
-
-	vertices_.clear();
 
 	// Rotation matrix
 	Matrix rotationMatrix = Matrix(3, 3, true).rotate(rotation_);
@@ -26,43 +20,80 @@ void Portal::update(){
 
 	// Matrices to transform vectors to paired portal
 	transformationMatrix_ = Matrix();
-	rotationMatrix_ = Matrix();
 
 	if(pairedPortal_){
 		// World to portal space
 		transformationMatrix_.translate(-position_);
 		transformationMatrix_.rotate(-rotation_);
-		rotationMatrix_.rotate(-rotation_);
 
 		// Mirroring
-		Matrix mirroringMatrix = Matrix().rotate(rotationMatrix * Vec3(0, 0, 1), 180.0f, true);
+		Matrix mirroringMatrix = Matrix().rotate(Vec3(0, 0, 1), 180.0f, true);
 		transformationMatrix_	= mirroringMatrix * transformationMatrix_;
-		rotationMatrix_			= mirroringMatrix * rotationMatrix_;
 
 		// Paired portal space to world
 		transformationMatrix_.rotate(pairedPortal_->getRotation());
 		transformationMatrix_.translate(pairedPortal_->getPosition());
-		rotationMatrix_.rotate(pairedPortal_->getRotation());
+
+		// Rotation only matrix
+		rotationMatrix_ = transformationMatrix_;
+		rotationMatrix_.set(0, 3, 0);
+		rotationMatrix_.set(1, 3, 0);
+		rotationMatrix_.set(2, 3, 0);
 	}
 
 
 	// Base vertices
+	vertices_.clear();
 	float hw = width_ / 2;
 	float hh = height_ / 2;
 	vertices_.push_back(Vec3(hw, 0, hh));
 	vertices_.push_back(Vec3(hw, 0, -hh));
-	vertices_.push_back(Vec3(-hw, 0, hh));
 	vertices_.push_back(Vec3(-hw, 0, -hh));
+	vertices_.push_back(Vec3(-hw, 0, hh));
 
 	// Rotate and translate vertices
 	for(Vec3& v : vertices_){
 		v = rotationMatrix * v;
 		v += position_;
 	}
+
+
+	// Get clip planes
+	clipPlanes_.clear();
+
+	for(int i = 0; i < 4; i++){
+		
+		// Second edge vertex
+		int j = i == 3 ? 0 : i + 1;
+
+		// Get edge vertices
+		const Vec3& v1 = vertices_[i];
+		const Vec3& v2 = vertices_[j];
+
+		ClipPlane plane;
+		plane.position = (v1 + v2) / 2;
+		plane.normal = ntw::crossProduct(v1 - v2, normal_);
+
+		// Check normal direction
+		if((position_ - plane.position) * plane.normal < 0)
+			plane.normal = -plane.normal;
+
+		clipPlanes_.push_back(plane);
+	}
 }
 
 bool Portal::isPointInFront(const Vec3& v){
 	return (v - position_) * normal_ > 0;
+}
+
+bool Portal::isPointWithinClipPlanes(const Vec3& v){
+
+	// Check which side of clip plane point is on
+	for(const ClipPlane& plane : clipPlanes_)
+		if((v - plane.position) * plane.normal < 0)
+			return false;
+
+	return true;
 }
 
 Vec3 Portal::getTransformedVector(const Vec3& v){

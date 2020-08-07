@@ -179,9 +179,9 @@ bool Object::cacheTransformedHitbox(){
 	if(hitboxCached_ || colliders_.empty())
 		return false;
 
-	for(Collider& collider : colliders_){
+	Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
 
-		Matrix rotation = Matrix(3, 3, true).rotate(getTRotation());
+	for(Collider& collider : colliders_){
 
 		// For each vertex
 		for(int i = 0; i < collider.hitbox->vertices.size(); i++){
@@ -221,7 +221,7 @@ bool Object::cacheTransformedHitbox(){
 	return true;
 }
 
-void Object::addContact(ContactInfo contact){
+void Object::addContact(ObjectContactInfo contact){
 	contacts_.push_back(contact);
 }
 
@@ -285,6 +285,6 @@ bool Object::hasSoundSource() const{
 	return soundSource_ != -1;
 }
 
-const vector<ContactInfo>& Object::getContacts() const{
+const vector<ObjectContactInfo>& Object::getContacts() const{
 	return contacts_;
 }

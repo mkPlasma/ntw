@@ -12,18 +12,96 @@ Quaternion::Quaternion(float x, float y, float z, float w) :
 }
 
 // Quaternion from rotation matrix
-Quaternion::Quaternion(const Matrix& rm){
-	Vec3 axis = Vec3(rm.get(2, 1) - rm.get(1, 2), rm.get(0, 2) - rm.get(2, 0), rm.get(1, 0) - rm.get(0, 1));
-	float ang = acosf((rm.get(0, 0) + rm.get(1, 1) + rm.get(2, 2) + 1) / 2);
+Quaternion::Quaternion(const Matrix& rm) : Quaternion(){
+	float epsilon	= 0.001f;
+	float epsilon2	= 0.1f;
 
-	setRotation(axis, ang);
+	if(	abs(rm.get(0, 1) - rm.get(1, 0)) < epsilon &&
+		abs(rm.get(0, 2) - rm.get(2, 0)) < epsilon &&
+		abs(rm.get(1, 2) - rm.get(2, 1)) < epsilon){
 
-	// Verify sign
-	if(Matrix(3, 3, true).rotate(*this) != rm.getSubMatrix(0, 0, 3, 3)){
-		setRotation(axis, -ang);
+		if(	abs(rm.get(0, 1) + rm.get(1, 0)) < epsilon2 &&
+			abs(rm.get(0, 2) + rm.get(2, 0)) < epsilon2 &&
+			abs(rm.get(1, 2) + rm.get(2, 1)) < epsilon2 &&
+			abs(rm.get(0, 0) + rm.get(1, 1) + rm.get(2, 2)) < epsilon2){
 
-		if(Matrix(3, 3, true).rotate(*this) != rm.getSubMatrix(0, 0, 3, 3))
-			ntw::error("Failed to convert rotation matrix to quaternion");
+			return;
+		}
+
+		float xx = (rm.get(0, 0) + 1) / 2;
+		float yy = (rm.get(1, 1) + 1) / 2;
+		float zz = (rm.get(2, 2) + 1) / 2;
+
+		float xy = (rm.get(0, 1) + rm.get(1, 0)) / 4;
+		float xz = (rm.get(0, 2) + rm.get(2, 0)) / 4;
+		float yz = (rm.get(1, 2) + rm.get(2, 1)) / 4;
+
+		Vec3 axis;
+
+		const float sqrt = 0.7071067f;
+
+		if(xx > yy && xx > zz){
+			if(xx < epsilon)
+				axis = Vec3(0, sqrt, sqrt);
+			else{
+				axis[0] = sqrtf(xx);
+				axis[1] = xy / axis[0];
+				axis[2] = xz / axis[0];
+			}
+		}
+
+		else if(yy > zz){
+			if(yy < epsilon)
+				axis = Vec3(sqrt, 0, sqrt);
+			else{
+				axis[1] = sqrtf(yy);
+				axis[0] = xy / axis[1];
+				axis[2] = yz / axis[1];
+			}
+		}
+
+		else{
+			if(zz < epsilon)
+				axis = Vec3(sqrt, sqrt, 0);
+			else{
+				axis[2] = sqrtf(zz);
+				axis[0] = xz / axis[2];
+				axis[1] = yz / axis[2];
+			}
+		}
+
+		setRotation(axis, PI);
+
+		if(isNan()){
+			x_ = 0;
+			y_ = 0;
+			z_ = 0;
+			w_ = 1;
+		}
+
+		return;
+	}
+
+	float s = sqrtf(
+		((rm.get(2, 1) - rm.get(1, 2)) * (rm.get(2, 1) - rm.get(1, 2))) +
+		((rm.get(0, 2) - rm.get(2, 0)) * (rm.get(0, 2) - rm.get(2, 0))) +
+		((rm.get(1, 0) - rm.get(0, 1)) * (rm.get(1, 0) - rm.get(0, 1)))
+	);
+
+	setRotation(
+		Vec3(
+			(rm.get(2, 1) - rm.get(1, 2)) / s,
+			(rm.get(0, 2) - rm.get(2, 0)) / s,
+			(rm.get(1, 0) - rm.get(0, 1)) / s
+		),
+		acosf(((rm.get(0, 0) + rm.get(1, 1) + rm.get(2, 2)) - 1) / 2)
+	);
+
+	if(isNan()){
+		x_ = 0;
+		y_ = 0;
+		z_ = 0;
+		w_ = 1;
 	}
 }
 
@@ -209,4 +287,8 @@ Quaternion Quaternion::unitQuaternion() const{
 
 Quaternion& Quaternion::normalize(){
 	return *this /= magnitude();
+}
+
+bool Quaternion::isNan() const{
+	return isnan(x_) || isnan(y_) || isnan(z_) || isnan(w_);
 }

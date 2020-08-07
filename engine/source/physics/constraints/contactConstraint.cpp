@@ -96,7 +96,7 @@ void ContactConstraint::solve(){
 
 		// If this is the first solve and the contact is persistent, use previous lambda sum as current lambda
 		/*
-		if(firstSolve_ && !contact_.isNew){
+		if(firstSolve_ && !contact_.updated){
 			switch(i){
 			case 0:	lambda_ = contact_.lambdaSum		* PHYS_WARM_START_LAMBDA_MULTIPLIER;	break;
 			case 1:	lambda_ = contact_.lambdaSumTan1	* PHYS_WARM_START_LAMBDA_MULTIPLIER;	break;
